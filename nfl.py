@@ -9,18 +9,258 @@ DB_NAME = 'nfl.db'
 
 # Connect to database
 try:
-    conn = sqlite3.connect(DBNAME)
+    conn = sqlite.connect(DB_NAME)
     cur = conn.cursor()
 except:
     print("Error occurred connecting to database")
 
-def open_csv():
+def make_combine_table():
+    statement = "DROP TABLE IF EXISTS 'Combine'"
+    cur.execute(statement)
+
+    # Create new Countries table
+    statement = """
+        CREATE TABLE 'Combine' (
+          'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
+          'Name' TEXT NOT NULL,
+          'Position' TEXT NOT NULL,
+          'College' FLOAT NOT NULL,
+          'FortyTime' TEXT NOT NULL,
+          'NflGrade' FLOAT NOT NULL,
+          'Year' INTEGER NOT NULL
+        );
+        """
+    cur.execute(statement)
+
+def make_draft_table():
+    statement = "DROP TABLE IF EXISTS 'Draft'"
+    cur.execute(statement)
+
+    # Create new Countries table
+    statement = """
+        CREATE TABLE 'Draft' (
+          'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
+          'Name' TEXT NOT NULL,
+          'NameId' INTEGER,
+          'Position' TEXT NOT NULL,
+          'DraftRound' INTEGER NOT NULL,
+          'DraftPick' INTEGER NOT NULL,
+          'College' TEXT NOT NULL
+        );
+        """
+    cur.execute(statement)
+
+def make_stats_table():
+    statement = "DROP TABLE IF EXISTS 'Stats'"
+    cur.execute(statement)
+
+    # Create new Countries table
+    statement = """
+        CREATE TABLE 'Stats' (
+          'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
+          'Name' TEXT NOT NULL,
+          'NameId' INTEGER,
+          'Team' TEXT NOT NULL,
+          'Postion' TEXT NOT NULL,
+          'Games' TEXT NOT NULL,
+          'Yards' TEXT NOT NULL,
+          'TD' INTEGER NOT NULL
+        );
+        """
+    cur.execute(statement)
+
+def insert_combine_data():
+    round_num = 0
+    with open(COMBINE_CSV) as combine_csv:
+        combine_data = csv.reader(combine_csv)
+        for player in combine_data:
+            if round_num == 0:
+                round_num += 1
+                continue
+
+            name = player[1]
+            position = player[4]
+            college = player[20]
+            forty = player[11]
+            nfl_grade = player[25]
+            year = player[0]
+
+            insertion = (None, name, position, college, forty, nfl_grade, year)
+            statement = 'INSERT INTO "Combine" '
+            statement += 'VALUES (?, ?, ?, ?, ?, ?, ?)'
+            cur.execute(statement, insertion)
+
+            round_num += 1
+
+    # Commit changes and close database connection
+    conn.commit()
+    conn.close()
+
+def cacheOpen(name):
 
     try:
-        combine = open(COMBINE_CSV, 'r')
-        combine_data = combine.read()
-        combine.close()
-        return (combine_data)
-
+        cache_file = open(name, 'r')
+        cache_contents = cache_file.read()
+        cache_dict = json.loads(cache_contents)
+        cache_file.close()
     except:
-        print("Error opening csv file.")
+        cache_dict = {}
+
+    return cache_dict
+
+def cacheWrite(name, cache_dict):
+
+    dumped_json_cache = json.dumps(cache_dict)
+    fw = open(name, "w")
+    fw.write(dumped_json_cache)
+    fw.close()
+
+def crawl_draft_data():
+    players = []
+    cache_name = 'draft.json'
+
+    base_url = 'https://www.pro-football-reference.com'
+    first_draft_url = '/years/2005/draft.htm'
+    full_url = base_url + first_draft_url
+
+    year = 2005
+    while year < 2016:
+        draft_cache = cacheOpen(cache_name)
+
+        if full_url in draft_cache:
+            page_text = draft_cache[full_url]
+        else:
+            page_resp = requests.get(full_url)
+            page_text = page_resp.text
+            draft_cache[full_url] = page_text
+            cacheWrite(cache_name, draft_cache)
+
+        page_soup = BeautifulSoup(page_text, 'html.parser')
+
+        next_button = page_soup.find(class_ = 'button2 next')
+        next_draft_url = next_button['href']
+        next_url = base_url + next_draft_url
+
+        # drafted_table = page_soup.find('table', id = 'drafts')
+        # drafted_players = drafted_table.find_all('data-row')
+        # for a in drafted_players:
+        #     print(a.string)
+
+        full_url = next_url
+        split_url = full_url.split('/')
+        year = int(split_url[4])
+
+def crawl_passing_data():
+    passer_stats = []
+    cache_name = 'stats.json'
+
+    base_url = 'https://www.pro-football-reference.com'
+    first_draft_url = '/years/2005/passing.htm'
+    full_url = base_url + first_draft_url
+
+    #passer stats
+    year = 2005
+    while year < 2016:
+        stats_cache = cacheOpen(cache_name)
+
+        if full_url in stats_cache:
+            page_text = stats_cache[full_url]
+        else:
+            page_resp = requests.get(full_url)
+            page_text = page_resp.text
+            stats_cache[full_url] = page_text
+            cacheWrite(cache_name, stats_cache)
+
+        page_soup = BeautifulSoup(page_text, 'html.parser')
+
+        next_button = page_soup.find(class_ = 'button2 next')
+        next_year_url = next_button['href']
+        next_url = base_url + next_year_url
+
+        # stats_table = page_soup.find('table', id = 'drafts')
+        # passer_stats = stats_table.find_all('data-row')
+        # for a in passer_stats:
+        #     print(a.string)
+
+        full_url = next_url
+        split_url = full_url.split('/')
+        year = int(split_url[4])
+
+def crawl_rushing_data():
+    rushing_stats = []
+    cache_name = 'stats.json'
+
+    base_url = 'https://www.pro-football-reference.com'
+    first_draft_url = '/years/2005/rushing.htm'
+    full_url = base_url + first_draft_url
+
+    #passer stats
+    year = 2005
+    while year < 2016:
+        stats_cache = cacheOpen(cache_name)
+
+        if full_url in stats_cache:
+            page_text = stats_cache[full_url]
+        else:
+            page_resp = requests.get(full_url)
+            page_text = page_resp.text
+            stats_cache[full_url] = page_text
+            cacheWrite(cache_name, stats_cache)
+
+        page_soup = BeautifulSoup(page_text, 'html.parser')
+
+        next_button = page_soup.find(class_ = 'button2 next')
+        next_year_url = next_button['href']
+        next_url = base_url + next_year_url
+
+        # stats_table = page_soup.find('table', id = 'drafts')
+        # passer_stats = stats_table.find_all('data-row')
+        # for a in passer_stats:
+        #     print(a.string)
+
+        full_url = next_url
+        split_url = full_url.split('/')
+        year = int(split_url[4])
+
+def crawl_receiving_data():
+    receiving_stats = []
+    cache_name = 'stats.json'
+
+    base_url = 'https://www.pro-football-reference.com'
+    first_draft_url = '/years/2005/receiving.htm'
+    full_url = base_url + first_draft_url
+
+    #passer stats
+    year = 2005
+    while year < 2016:
+        stats_cache = cacheOpen(cache_name)
+
+        if full_url in stats_cache:
+            page_text = stats_cache[full_url]
+        else:
+            page_resp = requests.get(full_url)
+            page_text = page_resp.text
+            stats_cache[full_url] = page_text
+            cacheWrite(cache_name, stats_cache)
+
+        page_soup = BeautifulSoup(page_text, 'html.parser')
+
+        next_button = page_soup.find(class_ = 'button2 next')
+        next_year_url = next_button['href']
+        next_url = base_url + next_year_url
+
+        # stats_table = page_soup.find('table', id = 'drafts')
+        # passer_stats = stats_table.find_all('data-row')
+        # for a in passer_stats:
+        #     print(a.string)
+
+        full_url = next_url
+        split_url = full_url.split('/')
+        year = int(split_url[4])
+
+make_combine_table()
+insert_combine_data()
+crawl_draft_data()
+crawl_passing_data()
+crawl_rushing_data()
+crawl_receiving_data()
