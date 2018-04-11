@@ -70,6 +70,10 @@ def make_stats_table():
     cur.execute(statement)
 
 def insert_combine_data():
+
+    # MAKE SURE YOU FIX THIS
+    pass
+
     round_num = 0
     with open(COMBINE_CSV) as combine_csv:
         combine_data = csv.reader(combine_csv)
@@ -117,14 +121,15 @@ def cacheWrite(name, cache_dict):
 
 def crawl_draft_data():
     players = []
+    table_contents = []
     cache_name = 'draft.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2005/draft.htm'
+    first_draft_url = '/years/2010/draft.htm'
     full_url = base_url + first_draft_url
 
-    year = 2005
-    while year < 2016:
+    year = 2010
+    while year < 2015:
         draft_cache = cacheOpen(cache_name)
 
         if full_url in draft_cache:
@@ -141,26 +146,33 @@ def crawl_draft_data():
         next_draft_url = next_button['href']
         next_url = base_url + next_draft_url
 
-        # drafted_table = page_soup.find('table', id = 'drafts')
-        # drafted_players = drafted_table.find_all('data-row')
-        # for a in drafted_players:
-        #     print(a.string)
-
+        drafted_table = page_soup.find('table', id = 'drafts')
+        drafted_table_body = drafted_table.find('tbody')
+        cells = []
+        for row in drafted_table_body:
+            for cell in row:
+                try:
+                    cells.append(cell.text.strip())
+                    table_contents.append(cells)
+                except:
+                    continue
         full_url = next_url
         split_url = full_url.split('/')
         year = int(split_url[4])
+
+    print(type(table_contents))
 
 def crawl_passing_data():
     passer_stats = []
     cache_name = 'stats.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2005/passing.htm'
+    first_draft_url = '/years/2010/passing.htm'
     full_url = base_url + first_draft_url
 
     #passer stats
-    year = 2005
-    while year < 2016:
+    year = 2010
+    while year < 2015:
         stats_cache = cacheOpen(cache_name)
 
         if full_url in stats_cache:
@@ -177,26 +189,34 @@ def crawl_passing_data():
         next_year_url = next_button['href']
         next_url = base_url + next_year_url
 
-        # stats_table = page_soup.find('table', id = 'drafts')
-        # passer_stats = stats_table.find_all('data-row')
-        # for a in passer_stats:
-        #     print(a.string)
+        passing_table = page_soup.find('table', id = 'passing')
+        passing_table_body = passing_table.find('tbody')
+        cells = []
+        for row in passing_table_body:
+            for cell in row:
+                try:
+                    cells.append(cell.text.strip())
+                    table_contents.append(cells)
+                except:
+                    continue
 
         full_url = next_url
         split_url = full_url.split('/')
         year = int(split_url[4])
+
+    print(type(table_contents))
 
 def crawl_rushing_data():
     rushing_stats = []
     cache_name = 'stats.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2005/rushing.htm'
+    first_draft_url = '/years/2010/rushing.htm'
     full_url = base_url + first_draft_url
 
     #passer stats
-    year = 2005
-    while year < 2016:
+    year = 2010
+    while year < 2015:
         stats_cache = cacheOpen(cache_name)
 
         if full_url in stats_cache:
@@ -213,26 +233,34 @@ def crawl_rushing_data():
         next_year_url = next_button['href']
         next_url = base_url + next_year_url
 
-        # stats_table = page_soup.find('table', id = 'drafts')
-        # passer_stats = stats_table.find_all('data-row')
-        # for a in passer_stats:
-        #     print(a.string)
+        rushing_table = page_soup.find('table', id = 'rushing')
+        rushing_table_body = rushing_table.find('tbody')
+        cells = []
+        for row in rushing_table_body:
+            for cell in row:
+                try:
+                    cells.append(cell.text.strip())
+                    table_contents.append(cells)
+                except:
+                    continue
 
         full_url = next_url
         split_url = full_url.split('/')
         year = int(split_url[4])
+
+    print(type(table_contents))
 
 def crawl_receiving_data():
     receiving_stats = []
     cache_name = 'stats.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2005/receiving.htm'
+    first_draft_url = '/years/2010/receiving.htm'
     full_url = base_url + first_draft_url
 
     #passer stats
-    year = 2005
-    while year < 2016:
+    year = 2010
+    while year < 2015:
         stats_cache = cacheOpen(cache_name)
 
         if full_url in stats_cache:
@@ -249,14 +277,22 @@ def crawl_receiving_data():
         next_year_url = next_button['href']
         next_url = base_url + next_year_url
 
-        # stats_table = page_soup.find('table', id = 'drafts')
-        # passer_stats = stats_table.find_all('data-row')
-        # for a in passer_stats:
-        #     print(a.string)
+        receiving_table = page_soup.find('table', id = 'receiving')
+        receiving_table_body = receiving_table.find('tbody')
+        cells = []
+        for row in receiving_table_body:
+            for cell in row:
+                try:
+                    cells.append(cell.text.strip())
+                    table_contents.append(cells)
+                except:
+                    continue
 
         full_url = next_url
         split_url = full_url.split('/')
         year = int(split_url[4])
+
+    print(type(table_contents))
 
 make_combine_table()
 insert_combine_data()
