@@ -123,6 +123,7 @@ def crawl_draft_data():
     players = []
     table_contents = []
     cache_name = 'draft.json'
+    raw_data_cache = 'raw_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
     first_draft_url = '/years/2010/draft.htm'
@@ -146,25 +147,44 @@ def crawl_draft_data():
         next_draft_url = next_button['href']
         next_url = base_url + next_draft_url
 
-        drafted_table = page_soup.find('table', id = 'drafts')
-        drafted_table_body = drafted_table.find('tbody')
-        cells = []
-        for row in drafted_table_body:
-            for cell in row:
-                try:
-                    cells.append(cell.text.strip())
+        raw_data_dict = cacheOpen(raw_data_cache)
+        split_url = full_url.split('/')
+        current_year = int(split_url[4])
+        key = str(current_year) + ' draft'
+        if key in raw_data_dict:
+            draft_data = raw_data_dict[key]
+            table_contents.append(draft_data)
+        else:
+            current_year_draft = []
+            drafted_table = page_soup.find('table', id = 'drafts')
+            drafted_table_body = drafted_table.find('tbody')
+            for row in drafted_table_body:
+                cells = []
+                for cell in row:
+                    try:
+                        cells.append(cell.text.strip())
+                    except:
+                        continue
+                if len(cells) != 0:
+                    current_year_draft.append(cells)
                     table_contents.append(cells)
-                except:
-                    continue
+
+            raw_data_dict[key] = current_year_draft
+            cacheWrite(raw_data_cache, raw_data_dict)
+
         full_url = next_url
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-    print(type(table_contents))
+    print("draft data")
+    print(len(table_contents))
+    print()
 
 def crawl_passing_data():
     passer_stats = []
+    table_contents = []
     cache_name = 'stats.json'
+    raw_data_cache = 'raw_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
     first_draft_url = '/years/2010/passing.htm'
@@ -189,26 +209,45 @@ def crawl_passing_data():
         next_year_url = next_button['href']
         next_url = base_url + next_year_url
 
-        passing_table = page_soup.find('table', id = 'passing')
-        passing_table_body = passing_table.find('tbody')
-        cells = []
-        for row in passing_table_body:
-            for cell in row:
-                try:
-                    cells.append(cell.text.strip())
+        raw_data_dict = cacheOpen(raw_data_cache)
+        split_url = full_url.split('/')
+        current_year = int(split_url[4])
+        key = str(current_year) + ' passing'
+
+        if key in raw_data_dict:
+            passing_data = raw_data_dict[key]
+            table_contents.append(passing_data)
+        else:
+            current_year_stats = []
+            passing_table = page_soup.find('table', id = 'passing')
+            passing_table_body = passing_table.find('tbody')
+            for row in passing_table_body:
+                cells = []
+                for cell in row:
+                    try:
+                        cells.append(cell.text.strip())
+                    except:
+                        continue
+                if len(cells) != 0:
                     table_contents.append(cells)
-                except:
-                    continue
+                    current_year_stats.append(cells)
+
+            raw_data_dict[key] = current_year_stats
+            cacheWrite(raw_data_cache, raw_data_dict)
 
         full_url = next_url
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-    print(type(table_contents))
+    print("passing data")
+    print(len(table_contents))
+    print()
 
 def crawl_rushing_data():
     rushing_stats = []
+    table_contents = []
     cache_name = 'stats.json'
+    raw_data_cache = 'raw_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
     first_draft_url = '/years/2010/rushing.htm'
@@ -233,26 +272,45 @@ def crawl_rushing_data():
         next_year_url = next_button['href']
         next_url = base_url + next_year_url
 
-        rushing_table = page_soup.find('table', id = 'rushing')
-        rushing_table_body = rushing_table.find('tbody')
-        cells = []
-        for row in rushing_table_body:
-            for cell in row:
-                try:
-                    cells.append(cell.text.strip())
+        raw_data_dict = cacheOpen(raw_data_cache)
+        split_url = full_url.split('/')
+        current_year = int(split_url[4])
+        key = str(current_year) + ' rushing'
+
+        if key in raw_data_dict:
+            rushing_data = raw_data_dict[key]
+            table_contents.append(rushing_data)
+        else:
+            current_year_stats = []
+            rushing_table = page_soup.find('table', id = 'rushing_and_receiving')
+            rushing_table_body = rushing_table.find('tbody')
+            for row in rushing_table_body:
+                cells = []
+                for cell in row:
+                    try:
+                        cells.append(cell.text.strip())
+                    except:
+                        continue
+                if len(cells) != 0:
+                    current_year_stats.append(cells)
                     table_contents.append(cells)
-                except:
-                    continue
+
+            raw_data_dict[key] = current_year_stats
+            cacheWrite(raw_data_cache, raw_data_dict)
 
         full_url = next_url
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-    print(type(table_contents))
+    print("rushing data")
+    print(len(table_contents))
+    print()
 
 def crawl_receiving_data():
     receiving_stats = []
+    table_contents = []
     cache_name = 'stats.json'
+    raw_data_cache = 'raw_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
     first_draft_url = '/years/2010/receiving.htm'
@@ -277,22 +335,38 @@ def crawl_receiving_data():
         next_year_url = next_button['href']
         next_url = base_url + next_year_url
 
-        receiving_table = page_soup.find('table', id = 'receiving')
-        receiving_table_body = receiving_table.find('tbody')
-        cells = []
-        for row in receiving_table_body:
-            for cell in row:
-                try:
-                    cells.append(cell.text.strip())
+        raw_data_dict = cacheOpen(raw_data_cache)
+        split_url = full_url.split('/')
+        current_year = int(split_url[4])
+        key = str(current_year) + ' receiving'
+        if key in raw_data_dict:
+            receiving_data = raw_data_dict[key]
+            table_contents.append(receiving_data)
+        else:
+            current_year_stats = []
+            receiving_table = page_soup.find('table', id = 'receiving')
+            receiving_table_body = receiving_table.find('tbody')
+            for row in receiving_table_body:
+                cells = []
+                for cell in row:
+                    try:
+                        cells.append(cell.text.strip())
+                    except:
+                        continue
+                if len(cells) != 0:
+                    current_year_stats.append(cells)
                     table_contents.append(cells)
-                except:
-                    continue
+
+            raw_data_dict[key] = current_year_stats
+            cacheWrite(raw_data_cache, raw_data_dict)
 
         full_url = next_url
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-    print(type(table_contents))
+    print("receiving data")
+    print(len(table_contents))
+    print()
 
 make_combine_table()
 insert_combine_data()
