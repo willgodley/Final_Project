@@ -7,13 +7,6 @@ from bs4 import BeautifulSoup
 COMBINE_CSV = 'combine.csv'
 DB_NAME = 'nfl.db'
 
-# Connect to database
-try:
-    conn = sqlite.connect(DB_NAME)
-    cur = conn.cursor()
-except:
-    print("Error occurred connecting to database")
-
 class Player():
 
     def __init__(self, nm, n_id,  ps, round_num, pick, clg, draft_yr, stats):
@@ -28,7 +21,7 @@ class Player():
         self.avg_td = self.compute_stats(stats)[1]
 
     def __str__(self):
-        return "{} ({}) was drafted in round {}, {} overall in {}. He averaged {} yards and {} TDs in a season in the 2010-2014 seasons. He went to {}.".format(self.name, self.position, self.round, self.pick, self.draft_year, self.avg_yards, self.avg_td, self.college)
+        return "{} ({}) was drafted in round {}, {} overall in {}. He averaged {} yards and {} TDs in a season in the 2011-2015 seasons. He went to {}.".format(self.name, self.position, self.round, self.pick, self.draft_year, self.avg_yards, self.avg_td, self.college)
 
     def compute_stats(self, stats):
         total_yards = 0
@@ -48,7 +41,6 @@ class Player():
             for year in stats:
                 total_yards += int(year[10])
                 total_td += int(year[12])
-
 
         avg_yards = str(total_yards / total_years)
         yards_split = avg_yards.split('.')
@@ -82,44 +74,36 @@ def make_combine_table():
         """
     cur.execute(statement)
 
-def make_draft_table():
-    statement = "DROP TABLE IF EXISTS 'Draft'"
+def make_NFL_table():
+    statement = "DROP TABLE IF EXISTS 'NFLPlayer'"
     cur.execute(statement)
 
-    # Create new Draft table
+    # Create new NFLPlayer table
     statement = """
-        CREATE TABLE 'Draft' (
+        CREATE TABLE 'NFLPlayer' (
           'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
           'Name' TEXT NOT NULL,
           'NameId' INTEGER,
           'Position' TEXT NOT NULL,
           'DraftRound' INTEGER NOT NULL,
           'DraftPick' INTEGER NOT NULL,
-          'College' TEXT NOT NULL
-        );
-        """
-    cur.execute(statement)
-
-def make_stats_table():
-    statement = "DROP TABLE IF EXISTS 'Stats'"
-    cur.execute(statement)
-
-    # Create new Stats table
-    statement = """
-        CREATE TABLE 'Stats' (
-          'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
-          'Name' TEXT NOT NULL,
-          'NameId' INTEGER,
-          'Team' TEXT NOT NULL,
-          'Postion' TEXT NOT NULL,
-          'Yards' TEXT NOT NULL,
-          'TD' INTEGER NOT NULL,
-          'Seasons' TEXT NOT NULL
+          'YearDrafted' INTEGER NOT NULL,
+          'College' TEXT NOT NULL,
+          'AvgYards' TEXT NOT NULL,
+          'AvgTD' INTEGER NOT NULL
         );
         """
     cur.execute(statement)
 
 def insert_combine_data():
+
+    # Connect to database
+    try:
+        conn = sqlite.connect(DB_NAME)
+        cur = conn.cursor()
+    except:
+        print("Error occurred connecting to database")
+
 
     names_and_keys = {}
     round_num = 0
@@ -132,10 +116,21 @@ def insert_combine_data():
 
             name = player[1]
             position = player[4]
+
+            # Only insert combine data from QB, WR, and RB
+            if position == "QB" or position == "WR" or position == "RB":
+                pass
+            else:
+                continue
+
             college = player[20]
             forty = player[11]
             nfl_grade = player[25]
             year = player[0]
+
+            # Stop inserting any data before the 2010 season
+            if year == '2010':
+                break
 
             names_and_keys[name] = round_num
 
@@ -148,7 +143,6 @@ def insert_combine_data():
 
     # Commit changes and close database connection
     conn.commit()
-    conn.close()
 
     return names_and_keys
 
@@ -178,11 +172,11 @@ def crawl_draft_data():
     raw_data_cache = 'raw_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2010/draft.htm'
+    first_draft_url = '/years/2011/draft.htm'
     full_url = base_url + first_draft_url
 
-    year = 2010
-    while year < 2015:
+    year = 2011
+    while year < 2016:
         draft_cache = cacheOpen(cache_name)
 
         if full_url in draft_cache:
@@ -236,12 +230,12 @@ def crawl_passing_data():
     raw_data_cache = 'raw_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2010/passing.htm'
+    first_draft_url = '/years/2011/passing.htm'
     full_url = base_url + first_draft_url
 
     #passer stats
     year = 2010
-    while year < 2015:
+    while year < 2016:
         stats_cache = cacheOpen(cache_name)
 
         if full_url in stats_cache:
@@ -296,12 +290,12 @@ def crawl_rushing_data():
     raw_data_cache = 'raw_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2010/rushing.htm'
+    first_draft_url = '/years/2011/rushing.htm'
     full_url = base_url + first_draft_url
 
     #passer stats
-    year = 2010
-    while year < 2015:
+    year = 2011
+    while year < 2016:
         stats_cache = cacheOpen(cache_name)
 
         if full_url in stats_cache:
@@ -356,12 +350,12 @@ def crawl_receiving_data():
     raw_data_cache = 'raw_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2010/receiving.htm'
+    first_draft_url = '/years/2011/receiving.htm'
     full_url = base_url + first_draft_url
 
     #passer stats
-    year = 2010
-    while year < 2015:
+    year = 2011
+    while year < 2016:
         stats_cache = cacheOpen(cache_name)
 
         if full_url in stats_cache:
@@ -443,6 +437,8 @@ def initialize_player_data(foreign_keys_dict):
 
             if name in foreign_keys_dict:
                 name_id = foreign_keys_dict[name]
+            else:
+                continue
 
             if 'QB' in position:
                 for season in all_passing_data:
@@ -473,7 +469,42 @@ def initialize_player_data(foreign_keys_dict):
 
     return players
 
+def insert_nfl_data(players):
+
+    # Connect to database
+    try:
+        conn = sqlite.connect(DB_NAME)
+        cur = conn.cursor()
+    except:
+        print("Error occurred connecting to database")
+
+    for player in players:
+
+        name = player.name
+        name_id = player.name_id
+        pos = player.position
+        rnd = player.round
+        pick = player.pick
+        draft_yr = player.draft_year
+        college = player.college
+        yards = player.avg_yards
+        td = player.avg_td
+
+        insertion = (None, name, name_id, pos, rnd, pick, draft_yr, college, yards, td)
+        statement = 'INSERT INTO "NFLPlayer" '
+        statement += 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        cur.execute(statement, insertion)
+
+        conn.commit()
+
 if __name__ == '__main__':
+    # Connect to database
+    try:
+        conn = sqlite.connect(DB_NAME)
+        cur = conn.cursor()
+    except:
+        print("Error occurred connecting to database")
+
     make_combine_table()
     names_with_keys = insert_combine_data()
     crawl_draft_data()
@@ -481,5 +512,9 @@ if __name__ == '__main__':
     crawl_rushing_data()
     crawl_receiving_data()
     players = initialize_player_data(names_with_keys)
-    for player in players:
-        print(player)
+    make_NFL_table()
+    insert_nfl_data(players)
+
+    # Commit any changes and close connection to database
+    conn.commit()
+    conn.close()
