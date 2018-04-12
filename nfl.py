@@ -14,11 +14,61 @@ try:
 except:
     print("Error occurred connecting to database")
 
+class Player():
+
+    def __init__(self, nm, n_id,  ps, round_num, pick, clg, draft_yr, stats):
+        self.name = nm
+        self.name_id = n_id
+        self.position = ps
+        self.round = round_num
+        self.pick = pick
+        self.college = clg
+        self.draft_year = draft_yr
+        self.avg_yards = self.compute_stats(stats)[0]
+        self.avg_td = self.compute_stats(stats)[1]
+
+    def __str__(self):
+        return "{} ({}) was drafted in round {}, {} overall in {}. He averaged {} yards and {} TDs in a season in the 2010-2014 seasons. He went to {}.".format(self.name, self.position, self.round, self.pick, self.draft_year, self.avg_yards, self.avg_td, self.college)
+
+    def compute_stats(self, stats):
+        total_yards = 0
+        total_td = 0
+        total_years = len(stats)
+        if self.position == 'QB':
+            for year in stats:
+                total_yards += int(year[11])
+                total_td += int(year[12])
+
+        elif self.position == 'RB':
+            for year in stats:
+                total_yards += int(year[8])
+                total_td += int(year[9])
+
+        elif self.position == 'WR':
+            for year in stats:
+                total_yards += int(year[10])
+                total_td += int(year[12])
+
+
+        avg_yards = str(total_yards / total_years)
+        yards_split = avg_yards.split('.')
+        yards = yards_split[0]
+        yards_decimal = yards_split[1][0]
+        avg_yards = float(yards + '.' + yards_decimal)
+
+        avg_td = str(total_td / total_years)
+        td_split = avg_td.split('.')
+        tds = td_split[0]
+        tds_decimal = td_split[1][0]
+        avg_td = float(tds + '.' + tds_decimal)
+
+        return(avg_yards, avg_td)
+
 def make_combine_table():
     statement = "DROP TABLE IF EXISTS 'Combine'"
     cur.execute(statement)
 
-    # Create new Countries table
+    # Create new Combine table
     statement = """
         CREATE TABLE 'Combine' (
           'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,7 +86,7 @@ def make_draft_table():
     statement = "DROP TABLE IF EXISTS 'Draft'"
     cur.execute(statement)
 
-    # Create new Countries table
+    # Create new Draft table
     statement = """
         CREATE TABLE 'Draft' (
           'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,7 +104,7 @@ def make_stats_table():
     statement = "DROP TABLE IF EXISTS 'Stats'"
     cur.execute(statement)
 
-    # Create new Countries table
+    # Create new Stats table
     statement = """
         CREATE TABLE 'Stats' (
           'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,18 +112,16 @@ def make_stats_table():
           'NameId' INTEGER,
           'Team' TEXT NOT NULL,
           'Postion' TEXT NOT NULL,
-          'Games' TEXT NOT NULL,
           'Yards' TEXT NOT NULL,
-          'TD' INTEGER NOT NULL
+          'TD' INTEGER NOT NULL,
+          'Seasons' TEXT NOT NULL
         );
         """
     cur.execute(statement)
 
 def insert_combine_data():
 
-    # MAKE SURE YOU FIX THIS
-    pass
-
+    names_and_keys = {}
     round_num = 0
     with open(COMBINE_CSV) as combine_csv:
         combine_data = csv.reader(combine_csv)
@@ -89,6 +137,8 @@ def insert_combine_data():
             nfl_grade = player[25]
             year = player[0]
 
+            names_and_keys[name] = round_num
+
             insertion = (None, name, position, college, forty, nfl_grade, year)
             statement = 'INSERT INTO "Combine" '
             statement += 'VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -99,6 +149,8 @@ def insert_combine_data():
     # Commit changes and close database connection
     conn.commit()
     conn.close()
+
+    return names_and_keys
 
 def cacheOpen(name):
 
@@ -176,9 +228,6 @@ def crawl_draft_data():
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-    print("draft data")
-    print(len(table_contents))
-    print()
 
 def crawl_passing_data():
     passer_stats = []
@@ -239,9 +288,6 @@ def crawl_passing_data():
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-    print("passing data")
-    print(len(table_contents))
-    print()
 
 def crawl_rushing_data():
     rushing_stats = []
@@ -302,9 +348,6 @@ def crawl_rushing_data():
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-    print("rushing data")
-    print(len(table_contents))
-    print()
 
 def crawl_receiving_data():
     receiving_stats = []
@@ -364,13 +407,79 @@ def crawl_receiving_data():
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-    print("receiving data")
-    print(len(table_contents))
-    print()
 
-make_combine_table()
-insert_combine_data()
-crawl_draft_data()
-crawl_passing_data()
-crawl_rushing_data()
-crawl_receiving_data()
+def initialize_player_data(foreign_keys_dict):
+    raw_data_cache = 'raw_data.json'
+    raw_data = cacheOpen(raw_data_cache)
+    all_draft_data = []
+    all_rushing_data = []
+    all_receiving_data = []
+    all_passing_data = []
+    players = []
+
+    for key in raw_data.keys():
+        if 'draft' in key:
+            year_drafted = key.split()[0]
+            draft_info = raw_data[key]
+            for player in draft_info:
+                player.append(year_drafted)
+            all_draft_data.append(raw_data[key])
+        elif 'rushing' in key:
+            all_rushing_data.append(raw_data[key])
+        elif 'receiving' in key:
+            all_receiving_data.append(raw_data[key])
+        elif 'passing' in key:
+            all_passing_data.append(raw_data[key])
+
+    for draft_year in all_draft_data:
+        for player in draft_year:
+            name = player[3]
+            draft_round = player[0]
+            draft_pick = player[1]
+            position = player[4]
+            college = player[27]
+            draft_year = player[29]
+            stats = []
+
+            if name in foreign_keys_dict:
+                name_id = foreign_keys_dict[name]
+
+            if 'QB' in position:
+                for season in all_passing_data:
+                    for player in season:
+                        if name in player:
+                            stats.append(player)
+
+            elif 'RB' in position:
+                for season in all_rushing_data:
+                    for player in season:
+                        if name in player:
+                            stats.append(player)
+
+            elif 'WR' in position:
+                for season in all_receiving_data:
+                    for player in season:
+                        if name in player:
+                            stats.append(player)
+
+            else:
+                continue
+
+            if len(stats) == 0:
+                continue
+
+            new_player = Player(name, name_id, position, draft_round, draft_pick, college, draft_year, stats)
+            players.append(new_player)
+
+    return players
+
+if __name__ == '__main__':
+    make_combine_table()
+    names_with_keys = insert_combine_data()
+    crawl_draft_data()
+    crawl_passing_data()
+    crawl_rushing_data()
+    crawl_receiving_data()
+    players = initialize_player_data(names_with_keys)
+    for player in players:
+        print(player)
