@@ -1,2 +1,10 @@
 
 Commands available:
+
+    'draft'
+
+    'studs'
+
+    'success'
+
+    'preparedness'

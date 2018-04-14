@@ -118,6 +118,7 @@ def make_draft_table():
         CREATE TABLE 'Draft' (
           'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
           'Name' TEXT NOT NULL,
+          'NameID' TEXT NOT NULL,
           'Position' TEXT NOT NULL,
           'College' TEXT NOT NULL,
           'Pick' INTEGER NOT NULL,
@@ -138,13 +139,11 @@ def make_NFL_table():
           'Name' TEXT NOT NULL,
           'NameId' INTEGER,
           'Position' TEXT NOT NULL,
-          'DraftRound' INTEGER NOT NULL,
-          'DraftPick' INTEGER NOT NULL,
           'YearDrafted' INTEGER NOT NULL,
           'College' TEXT NOT NULL,
           'AvgYards' FLOAT NOT NULL,
           'AvgTD' FLOAT NOT NULL,
-          'Preparadness' FLOAT NOT NULL
+          'Preparedness' FLOAT NOT NULL
         );
         """
     cur.execute(statement)
@@ -261,7 +260,17 @@ def crawl_draft_data():
                 cells = []
                 for cell in row:
                     try:
-                        cells.append(cell.text.strip())
+                        cell_str = cell.text.strip()
+                        if "*" in cell_str:
+                            fixed_cell = cell_str.replace('*', '')
+                            if '+' in fixed_cell:
+                                fixed_cell = fixed_cell.replace('+', '')
+                            cells.append(fixed_cell)
+                        elif '+' in cell_str:
+                            fixed_cell = cell_str.replace('+', '')
+                            cells.append(fixed_cell)
+                        else:
+                            cells.append(cell_str)
                     except:
                         continue
                 if len(cells) != 0:
@@ -321,7 +330,17 @@ def crawl_passing_data():
                 cells = []
                 for cell in row:
                     try:
-                        cells.append(cell.text.strip())
+                        cell_str = cell.text.strip()
+                        if "*" in cell_str:
+                            fixed_cell = cell_str.replace('*', '')
+                            if '+' in fixed_cell:
+                                fixed_cell = fixed_cell.replace('+', '')
+                            cells.append(fixed_cell)
+                        elif '+' in cell_str:
+                            fixed_cell = cell_str.replace('+', '')
+                            cells.append(fixed_cell)
+                        else:
+                            cells.append(cell_str)
                     except:
                         continue
                 if len(cells) != 0:
@@ -381,7 +400,17 @@ def crawl_rushing_data():
                 cells = []
                 for cell in row:
                     try:
-                        cells.append(cell.text.strip())
+                        cell_str = cell.text.strip()
+                        if "*" in cell_str:
+                            fixed_cell = cell_str.replace('*', '')
+                            if '+' in fixed_cell:
+                                fixed_cell = fixed_cell.replace('+', '')
+                            cells.append(fixed_cell)
+                        elif '+' in cell_str:
+                            fixed_cell = cell_str.replace('+', '')
+                            cells.append(fixed_cell)
+                        else:
+                            cells.append(cell_str)
                     except:
                         continue
                 if len(cells) != 0:
@@ -440,7 +469,17 @@ def crawl_receiving_data():
                 cells = []
                 for cell in row:
                     try:
-                        cells.append(cell.text.strip())
+                        cell_str = cell.text.strip()
+                        if "*" in cell_str:
+                            fixed_cell = cell_str.replace('*', '')
+                            if '+' in fixed_cell:
+                                fixed_cell = fixed_cell.replace('+', '')
+                            cells.append(fixed_cell)
+                        elif '+' in cell_str:
+                            fixed_cell = cell_str.replace('+', '')
+                            cells.append(fixed_cell)
+                        else:
+                            cells.append(cell_str)
                     except:
                         continue
                 if len(cells) != 0:
@@ -454,7 +493,7 @@ def crawl_receiving_data():
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-def insert_draft_data():
+def insert_draft_data(foreign_keys_dict):
     # Connect to database
     try:
         conn = sqlite.connect(DB_NAME)
@@ -479,9 +518,14 @@ def insert_draft_data():
             draft_pick = player[1]
             draft_round = player[0]
 
-            insertion = (None, name, position, college, draft_pick, draft_round)
+            if name in foreign_keys_dict:
+                name_id = foreign_keys_dict[name]
+            else:
+                continue
+
+            insertion = (None, name, name_id, position, college, draft_pick, draft_round)
             statement = 'INSERT INTO "Draft" '
-            statement += 'VALUES (?, ?, ?, ?, ?, ?)'
+            statement += 'VALUES (?, ?, ?, ?, ?, ?, ?)'
             cur.execute(statement, insertion)
 
             conn.commit()
@@ -572,18 +616,20 @@ def insert_nfl_data(players):
         pick = player.pick
         draft_yr = player.draft_year
         college = player.college
+        if "A&M" in college:
+            college = college[:-1]
         yards = player.avg_yards
         td = player.avg_td
         prep = player.preparedness
 
-        insertion = (None, name, name_id, pos, rnd, pick, draft_yr, college, yards, td, prep)
+        insertion = (None, name, name_id, pos, draft_yr, college, yards, td, prep)
         statement = 'INSERT INTO "NFLPlayer" '
-        statement += 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        statement += 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         cur.execute(statement, insertion)
 
         conn.commit()
 
-def get_colleges():
+def get_colleges(kind):
     # Connect to database
     try:
         conn = sqlite.connect(DB_NAME)
@@ -597,12 +643,23 @@ def get_colleges():
     conn.commit()
 
     all_colleges = []
-    for college in cur:
-        all_colleges.append(college[0])
+    if kind == 'all':
+        for college in cur:
+            if college[0].strip() == '':
+                continue
+            all_colleges.append(college[0])
+    elif kind == 'single':
+        for college in cur:
+            if college[0] not in all_colleges:
+                if college[0].strip() == '':
+                    continue
+                all_colleges.append(college[0])
 
     return all_colleges
 
-def top_colleges_command(colleges):
+def top_colleges_command():
+
+    colleges = get_colleges("all")
 
     college_count = {}
 
@@ -623,15 +680,20 @@ def top_colleges_command(colleges):
     other = ('Average of all other schools', round(avg, 2))
     top_colleges.append(other)
 
+    print(top_colleges)
+
     # MAKE PLOT FROM HERE
 
-def NFL_grade_command(school):
 
-    colleges = get_colleges()
+def NFL_grade_command(command):
+
+    school = command.split()[1]
+
+    colleges = get_colleges("single")
 
     good_college = False
-    for college in colleges:
-        if college == school:
+    for university in colleges:
+        if university == school:
             good_college = True
 
     if good_college == False:
@@ -647,40 +709,78 @@ def NFL_grade_command(school):
     busts = 0
 
     for player in cur:
-        if college == str(player[1]):
-            print(player)
-        #     if player[0] == 'QB':
-        #         if float(player[2]) >= 3200.0 or float(player[3]) >= 20.0:
-        #             studs += 1
-        #         elif float(player[2]) >= 2000.0 or float(player[3]) >= 10.0:
-        #             successful += 1
-        #         else:
-        #             busts += 1
-        #     else:
-        #         if float(player[2]) >= 700.0 or float(player[3]) >= 7.0:
-        #             studs += 1
-        #         elif float(player[2]) >= 400.0 or float(player[3]) >= 3.0:
-        #             successful += 1
-        #         else:
-        #             busts += 1
+        if school == str(player[1]):
+            if player[0] == 'QB':
+                if float(player[2]) >= 3200.0 or float(player[3]) >= 20.0:
+                    studs += 1
+                elif float(player[2]) >= 2000.0 or float(player[3]) >= 10.0:
+                    successful += 1
+                else:
+                    busts += 1
+            else:
+                if float(player[2]) >= 700.0 or float(player[3]) >= 7.0:
+                    studs += 1
+                elif float(player[2]) >= 400.0 or float(player[3]) >= 3.0:
+                    successful += 1
+                else:
+                    busts += 1
 
     if studs == 0 and successful == 0 and busts == 0:
-        print("No player from this school has accumulated stats in the 2011-2015 seasons")
+        print("No player from this school has accumulated offensive stats in the 2011-2015 seasons")
         return
 
     print("Studs: {}. Successful: {}. Busts {}.".format(studs, successful, busts))
 
+    # DO PLOTLY STUFF
+
+def draft_round_command(command):
+
+    position = command.split()[1]
+    if position.upper() == "QB" or position.upper() == "WR" or position.upper() == "RB":
+        pass
+    else:
+        print("Not a valid position. Use 'QB', 'WR', or 'RB'.")
+        return
+
+    draft_statement = "SELECT Round, AvgYards FROM NFLPlayer "
+    draft_statement += "JOIN Draft on NFLPlayer.NameId = Draft.NameID "
+    draft_statement += "WHERE NFLPlayer.Position = '{}'".format(position)
+    cur.execute(draft_statement)
+    conn.commit()
+
+    average_yards_and_round = []
+    for player in cur:
+        pair = (player[0], player[1])
+        average_yards_and_round.append(pair)
+
+    print(average_yards_and_round)
+
+    # PLOTY
+
+def preparedness_command(command):
+
+    prep_statement = "SELECT College, AVG(Preparedness) FROM NFLPlayer "
+    prep_statement += "GROUP BY College ORDER BY AVG(Preparedness) "
+    prep_statement += "DESC LIMIT 10"
+    cur.execute(prep_statement)
+    conn.commit()
+
+    for a in cur:
+        print(a)
 
 def handle_command(command):
 
     if command.lower() == "draft":
-        colleges = get_top_colleges()
-        top_colleges_command(colleges)
+        top_colleges_command()
 
-    elif command.lower() == "success":
-        print()
-        school = input("Enter a college: ")
-        NFL_grade_command(school)
+    elif "studs" in command.lower():
+        NFL_grade_command(command)
+
+    elif "success" in command.lower():
+        draft_round_command(command)
+
+    elif command.lower() == "preparedness":
+        preparedness_command(command)
 
     else:
         print()
@@ -689,20 +789,27 @@ def handle_command(command):
 
 def interactive_prompt():
     help_text = load_help_text()
+    colleges_text = load_colleges_text()
     command = ''
 
+    print()
     print("Type 'help' for list of commands.")
+    print("Type 'colleges' for list of colleges that have sent players to the 2011-2015 drafts.")
     while command != 'exit':
 
         print()
         command = input("Enter a command: ")
 
-        if command == 'exit':
+        if command.lower() == 'exit':
             print("Bye!")
             continue
 
-        elif command == 'help':
+        elif command.lower() == 'help':
             print(help_text)
+            continue
+
+        elif command.lower() == 'colleges':
+            print(colleges_text)
             continue
 
         else:
@@ -710,6 +817,10 @@ def interactive_prompt():
 
 def load_help_text():
     with open('help.txt') as f:
+        return f.read()
+
+def load_colleges_text():
+    with open('colleges.txt') as f:
         return f.read()
 
 if __name__ == '__main__':
@@ -731,7 +842,7 @@ if __name__ == '__main__':
     crawl_receiving_data()
     players = initialize_player_data(names_with_keys)
     insert_nfl_data(players)
-    insert_draft_data()
+    insert_draft_data(names_with_keys)
 
     # Interactive prompt
     interactive_prompt()
