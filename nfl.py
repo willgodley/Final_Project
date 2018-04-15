@@ -3,6 +3,12 @@ import requests
 import json
 import sqlite3 as sqlite
 from bs4 import BeautifulSoup
+import plotly
+import plotly.plotly as py
+import plotly.graph_objs as go
+from secrets import *
+
+plotly.tools.set_credentials_file(username=plotly_username, api_key=plotly_key)
 
 COMBINE_CSV = 'combine.csv'
 DB_NAME = 'nfl.db'
@@ -89,7 +95,6 @@ class Player():
 
         return preparedness
 
-
 def make_combine_table():
     statement = "DROP TABLE IF EXISTS 'Combine'"
     cur.execute(statement)
@@ -126,7 +131,6 @@ def make_draft_table():
         );
         """
     cur.execute(statement)
-
 
 def make_NFL_table():
     statement = "DROP TABLE IF EXISTS 'NFLPlayer'"
@@ -284,7 +288,6 @@ def crawl_draft_data():
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-
 def crawl_passing_data():
     passer_stats = []
     table_contents = []
@@ -354,7 +357,6 @@ def crawl_passing_data():
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-
 def crawl_rushing_data():
     rushing_stats = []
     table_contents = []
@@ -423,7 +425,6 @@ def crawl_rushing_data():
         full_url = next_url
         split_url = full_url.split('/')
         year = int(split_url[4])
-
 
 def crawl_receiving_data():
     receiving_stats = []
@@ -597,7 +598,6 @@ def initialize_player_data(foreign_keys_dict):
 
     return players
 
-
 def insert_nfl_data(players):
 
     # Connect to database
@@ -680,10 +680,16 @@ def top_colleges_command():
     other = ('Average of all other schools', round(avg, 2))
     top_colleges.append(other)
 
-    print(top_colleges)
+    labels = []
+    values = []
 
-    # MAKE PLOT FROM HERE
+    for college in top_colleges:
+        labels.append(college[0])
+        values.append(college[1])
 
+    trace = go.Pie(labels=labels, values=values)
+
+    py.plot([trace], filename='Top 10 Colleges For Number of Players Drafted')
 
 def NFL_grade_command(command):
 
@@ -748,14 +754,23 @@ def draft_round_command(command):
     cur.execute(draft_statement)
     conn.commit()
 
-    average_yards_and_round = []
-    for player in cur:
-        pair = (player[0], player[1])
-        average_yards_and_round.append(pair)
-
-    print(average_yards_and_round)
-
     # PLOTY
+    draft_round = []
+    avg_yards = []
+    for player in cur:
+        x.append(player[1])
+        x.append(player[0])
+
+    # Create traces
+    trace0 = go.Scatter(
+        x = draft_round,
+        y = avg_yards,
+        mode = 'markers',
+        name = 'Players'
+    )
+
+    data = [trace0]
+    py.plot(data, filename='scatter-mode')
 
 def preparedness_command(command):
 
