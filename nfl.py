@@ -95,24 +95,6 @@ class Player():
 
         return preparedness
 
-def make_combine_table():
-    statement = "DROP TABLE IF EXISTS 'Combine'"
-    cur.execute(statement)
-
-    # Create new Combine table
-    statement = """
-        CREATE TABLE 'Combine' (
-          'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
-          'Name' TEXT NOT NULL,
-          'Position' TEXT NOT NULL,
-          'College' TEXT NOT NULL,
-          'FortyTime' FLOAT NOT NULL,
-          'NflGrade' FLOAT NOT NULL,
-          'Year' INTEGER NOT NULL
-        );
-        """
-    cur.execute(statement)
-
 def make_draft_table():
 
     statement = "DROP TABLE IF EXISTS 'Draft'"
@@ -123,11 +105,29 @@ def make_draft_table():
         CREATE TABLE 'Draft' (
           'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
           'Name' TEXT NOT NULL,
-          'NameID' TEXT NOT NULL,
           'Position' TEXT NOT NULL,
           'College' TEXT NOT NULL,
           'Pick' INTEGER NOT NULL,
           'Round' INTEGER NOT NULL
+        );
+        """
+    cur.execute(statement)
+
+def make_combine_table():
+    statement = "DROP TABLE IF EXISTS 'Combine'"
+    cur.execute(statement)
+
+    # Create new Combine table
+    statement = """
+        CREATE TABLE 'Combine' (
+          'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
+          'Name' TEXT NOT NULL,
+          'NameID' TEXT NOT NULL,
+          'Position' TEXT NOT NULL,
+          'College' TEXT NOT NULL,
+          'FortyTime' FLOAT NOT NULL,
+          'NflGrade' FLOAT NOT NULL,
+          'Year' INTEGER NOT NULL
         );
         """
     cur.execute(statement)
@@ -152,55 +152,6 @@ def make_NFL_table():
         """
     cur.execute(statement)
 
-def insert_combine_data():
-
-    # Connect to database
-    try:
-        conn = sqlite.connect(DB_NAME)
-        cur = conn.cursor()
-    except:
-        print("Error occurred connecting to database")
-
-    names_and_keys = {}
-    round_num = 0
-    with open(COMBINE_CSV) as combine_csv:
-        combine_data = csv.reader(combine_csv)
-        for player in combine_data:
-            if round_num == 0:
-                round_num += 1
-                continue
-
-            name = player[1]
-            position = player[4]
-
-            # Only insert combine data from QB, WR, and RB
-            if position == "QB" or position == "WR" or position == "RB":
-                pass
-            else:
-                continue
-
-            college = player[20]
-            forty = player[11]
-            nfl_grade = player[25]
-            year = player[0]
-
-            # Stop inserting any data before the 2010 season
-            if year == '2010':
-                break
-
-            names_and_keys[name] = round_num
-
-            insertion = (None, name, position, college, forty, nfl_grade, year)
-            statement = 'INSERT INTO "Combine" '
-            statement += 'VALUES (?, ?, ?, ?, ?, ?, ?)'
-            cur.execute(statement, insertion)
-
-            round_num += 1
-
-    # Commit changes and close database connection
-    conn.commit()
-
-    return names_and_keys
 
 def cacheOpen(name):
 
@@ -494,7 +445,7 @@ def crawl_receiving_data():
         split_url = full_url.split('/')
         year = int(split_url[4])
 
-def insert_draft_data(foreign_keys_dict):
+def insert_draft_data():
     # Connect to database
     try:
         conn = sqlite.connect(DB_NAME)
@@ -509,6 +460,8 @@ def insert_draft_data(foreign_keys_dict):
         if "draft" in key:
             draft_data.append(data_dict[key])
 
+    key = 1
+    names_and_keys_dict = {}
     for draft in draft_data:
         for player in draft:
             name = player[3]
@@ -519,17 +472,71 @@ def insert_draft_data(foreign_keys_dict):
             draft_pick = player[1]
             draft_round = player[0]
 
+            names_and_keys_dict[name] = key
+            key += 1
+
+
+            insertion = (None, name, position, college, draft_pick, draft_round)
+            statement = 'INSERT INTO "Draft" '
+            statement += 'VALUES (?, ?, ?, ?, ?, ?)'
+            cur.execute(statement, insertion)
+
+            conn.commit()
+
+    return names_and_keys_dict
+
+def insert_combine_data(foreign_keys_dict):
+
+    # Connect to database
+    try:
+        conn = sqlite.connect(DB_NAME)
+        cur = conn.cursor()
+    except:
+        print("Error occurred connecting to database")
+
+    names_and_keys = {}
+    round_num = 0
+    with open(COMBINE_CSV) as combine_csv:
+        combine_data = csv.reader(combine_csv)
+        for player in combine_data:
+            if round_num == 0:
+                round_num += 1
+                continue
+
+            name = player[1]
+            position = player[4]
+
+            # Only insert combine data from QB, WR, and RB
+            if position == "QB" or position == "WR" or position == "RB":
+                pass
+            else:
+                continue
+
             if name in foreign_keys_dict:
                 name_id = foreign_keys_dict[name]
             else:
                 continue
 
-            insertion = (None, name, name_id, position, college, draft_pick, draft_round)
-            statement = 'INSERT INTO "Draft" '
-            statement += 'VALUES (?, ?, ?, ?, ?, ?, ?)'
+            college = player[20]
+            forty = player[11]
+            nfl_grade = player[25]
+            year = player[0]
+
+            # Stop inserting any data before the 2010 season
+            if year == '2010':
+                break
+
+            names_and_keys[name] = round_num
+
+            insertion = (None, name, name_id, position, college, forty, nfl_grade, year)
+            statement = 'INSERT INTO "Combine" '
+            statement += 'VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
             cur.execute(statement, insertion)
 
-            conn.commit()
+            round_num += 1
+
+    # Commit changes and close database connection
+    conn.commit()
 
 def initialize_player_data(foreign_keys_dict):
     raw_data_cache = 'raw_data.json'
@@ -689,57 +696,91 @@ def top_colleges_command():
 
     trace = go.Pie(labels=labels, values=values)
 
-    py.plot([trace], filename='Top 10 Colleges For Number of Players Drafted')
+    py.plot([trace], filename = 'Top 10 Colleges For Number of Players Drafted')
 
-def NFL_grade_command(command):
+def studs_command(command):
 
     school = command.split()[1]
 
     colleges = get_colleges("single")
 
-    good_college = False
-    for university in colleges:
-        if university == school:
-            good_college = True
+    if school.lower() == "all":
+        picks_statement = "SELECT Position, AvgYards, AvgTD FROM NFLPlayer"
+        cur.execute(picks_statement)
+        conn.commit()
 
-    if good_college == False:
-        print("This school has not sent any players to the 2011-2015 drafts")
-        return
+        studs = 0
+        successful = 0
+        busts = 0
 
-    picks_statement = "SELECT Position, College, AvgYards, AvgTD FROM NFLPlayer"
-    cur.execute(picks_statement)
-    conn.commit()
-
-    studs = 0
-    successful = 0
-    busts = 0
-
-    for player in cur:
-        if school == str(player[1]):
+        for player in cur:
             if player[0] == 'QB':
-                if float(player[2]) >= 3200.0 or float(player[3]) >= 20.0:
+                if float(player[1]) >= 3200.0 or float(player[2]) >= 20.0:
                     studs += 1
-                elif float(player[2]) >= 2000.0 or float(player[3]) >= 10.0:
+                elif float(player[1]) >= 2000.0 or float(player[2]) >= 10.0:
                     successful += 1
                 else:
                     busts += 1
             else:
-                if float(player[2]) >= 700.0 or float(player[3]) >= 7.0:
+                if float(player[1]) >= 700.0 or float(player[2]) >= 7.0:
                     studs += 1
-                elif float(player[2]) >= 400.0 or float(player[3]) >= 3.0:
+                elif float(player[1]) >= 400.0 or float(player[2]) >= 3.0:
                     successful += 1
                 else:
                     busts += 1
 
+    else:
+        good_college = False
+        for university in colleges:
+            if university == school:
+                good_college = True
+
+        if good_college == False:
+            print("This school has not sent any players to the 2011-2015 drafts")
+            return
+
+        picks_statement = "SELECT Position, College, AvgYards, AvgTD FROM NFLPlayer"
+        cur.execute(picks_statement)
+        conn.commit()
+
+        studs = 0
+        successful = 0
+        busts = 0
+
+        for player in cur:
+            if school == str(player[1]):
+                if player[0] == 'QB':
+                    if float(player[2]) >= 3200.0 or float(player[3]) >= 20.0:
+                        studs += 1
+                    elif float(player[2]) >= 2000.0 or float(player[3]) >= 10.0:
+                        successful += 1
+                    else:
+                        busts += 1
+                else:
+                    if float(player[2]) >= 700.0 or float(player[3]) >= 7.0:
+                        studs += 1
+                    elif float(player[2]) >= 400.0 or float(player[3]) >= 3.0:
+                        successful += 1
+                    else:
+                        busts += 1
+
     if studs == 0 and successful == 0 and busts == 0:
         print("No player from this school has accumulated offensive stats in the 2011-2015 seasons")
+        print("Be sure to capitalize the first letter of the school!")
         return
 
-    print("Studs: {}. Successful: {}. Busts {}.".format(studs, successful, busts))
-
     # DO PLOTLY STUFF
+    data = [go.Bar(
+        x=['Studs', 'Successful', 'Busts'],
+        y=[studs, successful, busts]
+    )]
 
-def draft_round_command(command):
+    if school.lower() == 'all':
+        py.plot(data, filename = 'Bar Chart of Stud, Successful, and Bust Players From All Colleges')
+    else:
+        py.plot(data, filename = 'Bar Chart of Stud, Successful, and Bust Players From {}'.format(school))
+
+def success_command(command):
 
     position = command.split()[1]
     if position.upper() == "QB" or position.upper() == "WR" or position.upper() == "RB":
@@ -754,12 +795,11 @@ def draft_round_command(command):
     cur.execute(draft_statement)
     conn.commit()
 
-    # PLOTY
     draft_round = []
     avg_yards = []
     for player in cur:
-        x.append(player[1])
-        x.append(player[0])
+        draft_round.append(player[0])
+        avg_yards.append(player[1])
 
     # Create traces
     trace0 = go.Scatter(
@@ -770,7 +810,7 @@ def draft_round_command(command):
     )
 
     data = [trace0]
-    py.plot(data, filename='scatter-mode')
+    py.plot(data, filename = 'Scatter Plot of Draft Round vs Avg Yards for {}s'.format(position))
 
 def preparedness_command(command):
 
@@ -780,8 +820,18 @@ def preparedness_command(command):
     cur.execute(prep_statement)
     conn.commit()
 
-    for a in cur:
-        print(a)
+    schools = []
+    avg_prep = []
+    for school in cur:
+        schools.append(school[0])
+        avg_prep.append(school[1])
+
+    data = [go.Bar(
+        x = schools,
+        y = avg_prep
+    )]
+
+    py.plot(data, filename = 'Bar Chart of Top 10 Schools for Average Preparedness Score')
 
 def handle_command(command):
 
@@ -789,10 +839,10 @@ def handle_command(command):
         top_colleges_command()
 
     elif "studs" in command.lower():
-        NFL_grade_command(command)
+        studs_command(command)
 
     elif "success" in command.lower():
-        draft_round_command(command)
+        success_command(command)
 
     elif command.lower() == "preparedness":
         preparedness_command(command)
@@ -850,14 +900,14 @@ if __name__ == '__main__':
     make_combine_table()
     make_draft_table()
     make_NFL_table()
-    names_with_keys = insert_combine_data()
     crawl_draft_data()
     crawl_passing_data()
     crawl_rushing_data()
     crawl_receiving_data()
+    names_with_keys = insert_draft_data()
+    insert_combine_data(names_with_keys)
     players = initialize_player_data(names_with_keys)
     insert_nfl_data(players)
-    insert_draft_data(names_with_keys)
 
     # Interactive prompt
     interactive_prompt()
