@@ -1,10 +1,31 @@
 
 Commands available:
 
-    'draft'
+    'draft':
 
-    'studs'
+        Description: Creates a pie chart with the top 10 schools in based on
+        number of players sent to the NFL, along with the average for all
+        other schools that have sent players to the draft between 2001 - 2015.
 
-    'success'
+    'studs':
 
-    'preparedness'
+        Description: Creates a bar graph of QBs, WRs, and RBs who were
+        studs, successful, and busts from either a certain school, or all.
+
+        Options: ['all'] (default): gives graph for combination of all schools.
+
+                 [school name]: enter a specific school name to get the graph
+                 for that school.
+
+                 Ex. studs Michigan
+
+    'success':
+
+        Description: Creates a scatter plot of draft round vs average yards
+        per season for players at a specific position.
+
+        Options: [QB, WR, RB] default - QB: Chooses position to base graph data on
+
+    'preparedness':
+
+      Description: 

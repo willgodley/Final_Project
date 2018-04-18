@@ -15,7 +15,7 @@ DB_NAME = 'nfl.db'
 
 class Player():
 
-    def __init__(self, nm, n_id,  ps, round_num, pick, clg, draft_yr, stats):
+    def __init__(self, nm, n_id, ps, round_num, pick, clg, draft_yr, stats):
         self.name = nm
         self.name_id = n_id
         self.position = ps
@@ -28,7 +28,13 @@ class Player():
         self.preparedness = self.get_prep_score()
 
     def __str__(self):
-        return "{} ({}) was drafted in round {}, {} overall in {}. He averaged {} yards and {} TDs in a season in the 2011-2015 seasons. He went to {}.".format(self.name, self.position, self.round, self.pick, self.draft_year, self.avg_yards, self.avg_td, self.college)
+        player_str = "{} ({}) was drafted in round {}, ".format(self.name, self.position, self.round)
+        player_str += "{} overall in {}. ".format(self.pick, self.draft_year)
+        player_str += "He averaged {} yards and {} ".format(self.avg_yards, self.avg_td)
+        player_str += "TDs in a season in the 2001-2015 seasons. "
+        player_str += "He went to {} ".format(self.college)
+        player_str += "and had a preparedness score of {}.".format(self.preparedness)
+        return player_str
 
     def compute_stats(self, stats):
         total_yards = 0
@@ -95,6 +101,9 @@ class Player():
 
         return preparedness
 
+
+# TABLE SECTION
+
 def make_draft_table():
 
     statement = "DROP TABLE IF EXISTS 'Draft'"
@@ -108,7 +117,8 @@ def make_draft_table():
           'Position' TEXT NOT NULL,
           'College' TEXT NOT NULL,
           'Pick' INTEGER NOT NULL,
-          'Round' INTEGER NOT NULL
+          'Round' INTEGER NOT NULL,
+          'DraftYear' INTEGER NOT NULL
         );
         """
     cur.execute(statement)
@@ -122,7 +132,7 @@ def make_combine_table():
         CREATE TABLE 'Combine' (
           'Id' INTEGER PRIMARY KEY AUTOINCREMENT,
           'Name' TEXT NOT NULL,
-          'NameID' TEXT NOT NULL,
+          'NameID' TEXT,
           'Position' TEXT NOT NULL,
           'College' TEXT NOT NULL,
           'FortyTime' FLOAT NOT NULL,
@@ -153,6 +163,8 @@ def make_NFL_table():
     cur.execute(statement)
 
 
+# CACHING
+
 def cacheOpen(name):
 
     try:
@@ -172,19 +184,21 @@ def cacheWrite(name, cache_dict):
     fw.write(dumped_json_cache)
     fw.close()
 
+# CRAWLING PRO FOOTBALL REFERENCE
+
 def crawl_draft_data():
     players = []
     table_contents = []
-    cache_name = 'draft.json'
-    raw_data_cache = 'raw_data.json'
+    page_cache_name = 'draft.json'
+    raw_data_cache = 'draft_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2011/draft.htm'
+    first_draft_url = '/years/2001/draft.htm'
     full_url = base_url + first_draft_url
 
-    year = 2011
+    year = 2001
     while year < 2016:
-        draft_cache = cacheOpen(cache_name)
+        draft_cache = cacheOpen(page_cache_name)
 
         if full_url in draft_cache:
             page_text = draft_cache[full_url]
@@ -192,7 +206,7 @@ def crawl_draft_data():
             page_resp = requests.get(full_url)
             page_text = page_resp.text
             draft_cache[full_url] = page_text
-            cacheWrite(cache_name, draft_cache)
+            cacheWrite(page_cache_name, draft_cache)
 
         page_soup = BeautifulSoup(page_text, 'html.parser')
 
@@ -204,9 +218,10 @@ def crawl_draft_data():
         split_url = full_url.split('/')
         current_year = int(split_url[4])
         key = str(current_year) + ' draft'
+
         if key in raw_data_dict:
             draft_data = raw_data_dict[key]
-            table_contents.append(draft_data)
+            current_year_draft = draft_data
         else:
             current_year_draft = []
             drafted_table = page_soup.find('table', id = 'drafts')
@@ -228,12 +243,13 @@ def crawl_draft_data():
                             cells.append(cell_str)
                     except:
                         continue
-                if len(cells) != 0:
-                    current_year_draft.append(cells)
-                    table_contents.append(cells)
 
-            raw_data_dict[key] = current_year_draft
-            cacheWrite(raw_data_cache, raw_data_dict)
+                if len(cells) != 0:
+                    cells.append(current_year)
+                    current_year_draft.append(cells)
+
+        raw_data_dict[key] = current_year_draft
+        cacheWrite(raw_data_cache, raw_data_dict)
 
         full_url = next_url
         split_url = full_url.split('/')
@@ -242,17 +258,17 @@ def crawl_draft_data():
 def crawl_passing_data():
     passer_stats = []
     table_contents = []
-    cache_name = 'stats.json'
-    raw_data_cache = 'raw_data.json'
+    page_cache_name = 'stats.json'
+    raw_data_cache = 'passing_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2011/passing.htm'
+    first_draft_url = '/years/2001/passing.htm'
     full_url = base_url + first_draft_url
 
-    #passer stats
-    year = 2010
+    # passer stats
+    year = 2001
     while year < 2016:
-        stats_cache = cacheOpen(cache_name)
+        stats_cache = cacheOpen(page_cache_name)
 
         if full_url in stats_cache:
             page_text = stats_cache[full_url]
@@ -260,7 +276,7 @@ def crawl_passing_data():
             page_resp = requests.get(full_url)
             page_text = page_resp.text
             stats_cache[full_url] = page_text
-            cacheWrite(cache_name, stats_cache)
+            cacheWrite(page_cache_name, stats_cache)
 
         page_soup = BeautifulSoup(page_text, 'html.parser')
 
@@ -275,7 +291,7 @@ def crawl_passing_data():
 
         if key in raw_data_dict:
             passing_data = raw_data_dict[key]
-            table_contents.append(passing_data)
+            current_year_stats = passing_data
         else:
             current_year_stats = []
             passing_table = page_soup.find('table', id = 'passing')
@@ -298,11 +314,10 @@ def crawl_passing_data():
                     except:
                         continue
                 if len(cells) != 0:
-                    table_contents.append(cells)
                     current_year_stats.append(cells)
 
-            raw_data_dict[key] = current_year_stats
-            cacheWrite(raw_data_cache, raw_data_dict)
+        raw_data_dict[key] = current_year_stats
+        cacheWrite(raw_data_cache, raw_data_dict)
 
         full_url = next_url
         split_url = full_url.split('/')
@@ -311,17 +326,17 @@ def crawl_passing_data():
 def crawl_rushing_data():
     rushing_stats = []
     table_contents = []
-    cache_name = 'stats.json'
-    raw_data_cache = 'raw_data.json'
+    page_cache_name = 'stats.json'
+    raw_data_cache = 'rushing_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2011/rushing.htm'
+    first_draft_url = '/years/2001/rushing.htm'
     full_url = base_url + first_draft_url
 
     #passer stats
-    year = 2011
+    year = 2001
     while year < 2016:
-        stats_cache = cacheOpen(cache_name)
+        stats_cache = cacheOpen(page_cache_name)
 
         if full_url in stats_cache:
             page_text = stats_cache[full_url]
@@ -329,7 +344,7 @@ def crawl_rushing_data():
             page_resp = requests.get(full_url)
             page_text = page_resp.text
             stats_cache[full_url] = page_text
-            cacheWrite(cache_name, stats_cache)
+            cacheWrite(page_cache_name, stats_cache)
 
         page_soup = BeautifulSoup(page_text, 'html.parser')
 
@@ -344,7 +359,7 @@ def crawl_rushing_data():
 
         if key in raw_data_dict:
             rushing_data = raw_data_dict[key]
-            table_contents.append(rushing_data)
+            current_year_stats = rushing_data
         else:
             current_year_stats = []
             rushing_table = page_soup.find('table', id = 'rushing_and_receiving')
@@ -368,10 +383,9 @@ def crawl_rushing_data():
                         continue
                 if len(cells) != 0:
                     current_year_stats.append(cells)
-                    table_contents.append(cells)
 
-            raw_data_dict[key] = current_year_stats
-            cacheWrite(raw_data_cache, raw_data_dict)
+        raw_data_dict[key] = current_year_stats
+        cacheWrite(raw_data_cache, raw_data_dict)
 
         full_url = next_url
         split_url = full_url.split('/')
@@ -380,17 +394,17 @@ def crawl_rushing_data():
 def crawl_receiving_data():
     receiving_stats = []
     table_contents = []
-    cache_name = 'stats.json'
-    raw_data_cache = 'raw_data.json'
+    page_cache_name = 'stats.json'
+    raw_data_cache = 'receiving_data.json'
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2011/receiving.htm'
+    first_draft_url = '/years/2001/receiving.htm'
     full_url = base_url + first_draft_url
 
     #passer stats
-    year = 2011
+    year = 2001
     while year < 2016:
-        stats_cache = cacheOpen(cache_name)
+        stats_cache = cacheOpen(page_cache_name)
 
         if full_url in stats_cache:
             page_text = stats_cache[full_url]
@@ -398,7 +412,7 @@ def crawl_receiving_data():
             page_resp = requests.get(full_url)
             page_text = page_resp.text
             stats_cache[full_url] = page_text
-            cacheWrite(cache_name, stats_cache)
+            cacheWrite(page_cache_name, stats_cache)
 
         page_soup = BeautifulSoup(page_text, 'html.parser')
 
@@ -412,7 +426,7 @@ def crawl_receiving_data():
         key = str(current_year) + ' receiving'
         if key in raw_data_dict:
             receiving_data = raw_data_dict[key]
-            table_contents.append(receiving_data)
+            current_year_stats = receiving_data
         else:
             current_year_stats = []
             receiving_table = page_soup.find('table', id = 'receiving')
@@ -434,16 +448,20 @@ def crawl_receiving_data():
                             cells.append(cell_str)
                     except:
                         continue
+
                 if len(cells) != 0:
                     current_year_stats.append(cells)
                     table_contents.append(cells)
 
-            raw_data_dict[key] = current_year_stats
-            cacheWrite(raw_data_cache, raw_data_dict)
+        raw_data_dict[key] = current_year_stats
+        cacheWrite(raw_data_cache, raw_data_dict)
 
         full_url = next_url
         split_url = full_url.split('/')
         year = int(split_url[4])
+
+
+# INSERTING DATA INTO TABLES
 
 def insert_draft_data():
     # Connect to database
@@ -453,32 +471,28 @@ def insert_draft_data():
     except:
         print("Error occurred connecting to database")
 
-    data_cache_name = 'raw_data.json'
-    data_dict = cacheOpen(data_cache_name)
-    draft_data = []
-    for key in data_dict.keys():
-        if "draft" in key:
-            draft_data.append(data_dict[key])
+    draft_cache_name = 'draft_data.json'
+    draft_data_dict = cacheOpen(draft_cache_name)
 
-    key = 1
+    player_id = 1
     names_and_keys_dict = {}
-    for draft in draft_data:
-        for player in draft:
+    for draft_year in draft_data_dict.keys():
+        for player in draft_data_dict[draft_year]:
             name = player[3]
             if name == "Player":
                 continue
             position = player[4]
-            college = player[27]
             draft_pick = player[1]
             draft_round = player[0]
+            college = player[27]
+            year = player[-1]
 
-            names_and_keys_dict[name] = key
-            key += 1
+            names_and_keys_dict[name] = player_id
+            player_id += 1
 
-
-            insertion = (None, name, position, college, draft_pick, draft_round)
+            insertion = (None, name, position, college, draft_pick, draft_round, year)
             statement = 'INSERT INTO "Draft" '
-            statement += 'VALUES (?, ?, ?, ?, ?, ?)'
+            statement += 'VALUES (?, ?, ?, ?, ?, ?, ?)'
             cur.execute(statement, insertion)
 
             conn.commit()
@@ -522,10 +536,6 @@ def insert_combine_data(foreign_keys_dict):
             nfl_grade = player[25]
             year = player[0]
 
-            # Stop inserting any data before the 2010 season
-            if year == '2010':
-                break
-
             names_and_keys[name] = round_num
 
             insertion = (None, name, name_id, position, college, forty, nfl_grade, year)
@@ -538,69 +548,70 @@ def insert_combine_data(foreign_keys_dict):
     # Commit changes and close database connection
     conn.commit()
 
+
+# INITIALIZE PLAYER CLASSES TO BE INSERTED INTO NFLPlayer TABLE
+
 def initialize_player_data(foreign_keys_dict):
-    raw_data_cache = 'raw_data.json'
-    raw_data = cacheOpen(raw_data_cache)
-    all_draft_data = []
-    all_rushing_data = []
-    all_receiving_data = []
-    all_passing_data = []
+    draft_data_cache = 'draft_data.json'
+    draft_dict = cacheOpen(draft_data_cache)
+    rushing_data_cache = 'rushing_data.json'
+    rushing_dict = cacheOpen(rushing_data_cache)
+    receiving_data_cache = 'receiving_data.json'
+    receiving_dict = cacheOpen(receiving_data_cache)
+    passing_data_cache = 'passing_data.json'
+    passing_dict = cacheOpen(passing_data_cache)
     players = []
 
-    for key in raw_data.keys():
-        if 'draft' in key:
-            year_drafted = key.split()[0]
-            draft_info = raw_data[key]
-            for player in draft_info:
-                player.append(year_drafted)
-            all_draft_data.append(raw_data[key])
-        elif 'rushing' in key:
-            all_rushing_data.append(raw_data[key])
-        elif 'receiving' in key:
-            all_receiving_data.append(raw_data[key])
-        elif 'passing' in key:
-            all_passing_data.append(raw_data[key])
-
-    for draft_year in all_draft_data:
-        for player in draft_year:
-            name = player[3]
-            draft_round = player[0]
-            draft_pick = player[1]
-            position = player[4]
-            college = player[27]
-            draft_year = player[29]
+    for draft_year in draft_dict.keys():
+        for player_drafted in draft_dict[draft_year]:
             stats = []
-
-            if name in foreign_keys_dict:
-                name_id = foreign_keys_dict[name]
-            else:
-                continue
-
+            draft_round = player_drafted[0]
+            draft_pick = player_drafted[1]
+            name = player_drafted[3]
+            position = player_drafted[4]
+            # Only initialize players who are QB, WR, or RB
             if 'QB' in position:
-                for season in all_passing_data:
-                    for player in season:
+                for season in passing_dict:
+                    for player in passing_dict[season]:
                         if name in player:
                             stats.append(player)
 
             elif 'RB' in position:
-                for season in all_rushing_data:
-                    for player in season:
+                for season in rushing_dict:
+                    for player in rushing_dict[season]:
                         if name in player:
                             stats.append(player)
 
             elif 'WR' in position:
-                for season in all_receiving_data:
-                    for player in season:
+                for season in receiving_dict:
+                    for player in receiving_dict[season]:
                         if name in player:
                             stats.append(player)
 
+            else:
+                continue
+            year_drafted = player_drafted[-1]
+            college = player_drafted[27]
+
+            # Remove players who didn't participate in combine
+            if name in foreign_keys_dict:
+                name_id = foreign_keys_dict[name]
             else:
                 continue
 
             if len(stats) == 0:
                 continue
 
-            new_player = Player(name, name_id, position, draft_round, draft_pick, college, draft_year, stats)
+            # Did this to shorten Player initialization line
+            a = name
+            b = name_id
+            c = position
+            d = draft_round
+            e = draft_pick
+            f = college
+            g = draft_year
+            h = stats
+            new_player = Player(a, b, c, d, e, f, g, h)
             players.append(new_player)
 
     return players
@@ -636,6 +647,7 @@ def insert_nfl_data(players):
 
         conn.commit()
 
+# USED TO GET LIST OF COLLEGES, EITHER ALL OR COUNT OF A SINGLE COLLEGE
 def get_colleges(kind):
     # Connect to database
     try:
@@ -664,6 +676,9 @@ def get_colleges(kind):
 
     return all_colleges
 
+
+# DIFFERENT COMMAND FUNCTIONS THAT LAUNCH PLOTLY GRAPHS
+
 def top_colleges_command():
 
     colleges = get_colleges("all")
@@ -687,20 +702,26 @@ def top_colleges_command():
     other = ('Average of all other schools', round(avg, 2))
     top_colleges.append(other)
 
+    return top_colleges
+
+def top_colleges_graph(best_colleges):
     labels = []
     values = []
 
-    for college in top_colleges:
+    for college in best_colleges:
         labels.append(college[0])
         values.append(college[1])
 
-    trace = go.Pie(labels=labels, values=values)
+    trace = go.Pie(labels = labels, values = values)
 
     py.plot([trace], filename = 'Top 10 Colleges For Number of Players Drafted')
 
 def studs_command(command):
 
-    school = command.split()[1]
+    try:
+        school = command.split()[1]
+    except:
+        school = 'all'
 
     colleges = get_colleges("single")
 
@@ -736,7 +757,7 @@ def studs_command(command):
                 good_college = True
 
         if good_college == False:
-            print("This school has not sent any players to the 2011-2015 drafts")
+            print("{} has not sent any players to the 2001-2015 drafts".format(school))
             return
 
         picks_statement = "SELECT Position, College, AvgYards, AvgTD FROM NFLPlayer"
@@ -765,9 +786,18 @@ def studs_command(command):
                         busts += 1
 
     if studs == 0 and successful == 0 and busts == 0:
-        print("No player from this school has accumulated offensive stats in the 2011-2015 seasons")
+        print("No player from this school has accumulated offensive stats in the 2001-2015 seasons")
         print("Be sure to capitalize the first letter of the school!")
         return
+
+    return [studs, successful, busts, school]
+
+def studs_graph(studs_data):
+
+    studs = studs_data[0]
+    successful = studs_data[1]
+    busts = studs_data[2]
+    university = studs_data[3]
 
     # DO PLOTLY STUFF
     data = [go.Bar(
@@ -775,14 +805,18 @@ def studs_command(command):
         y=[studs, successful, busts]
     )]
 
-    if school.lower() == 'all':
+    if university.lower() == 'all':
         py.plot(data, filename = 'Bar Chart of Stud, Successful, and Bust Players From All Colleges')
     else:
-        py.plot(data, filename = 'Bar Chart of Stud, Successful, and Bust Players From {}'.format(school))
+        py.plot(data, filename = 'Bar Chart of Stud, Successful, and Bust Players From {}'.format(university))
 
 def success_command(command):
 
-    position = command.split()[1]
+    try:
+        position = command.split()[1]
+    except:
+        position = 'QB'
+
     if position.upper() == "QB" or position.upper() == "WR" or position.upper() == "RB":
         pass
     else:
@@ -790,21 +824,32 @@ def success_command(command):
         return
 
     draft_statement = "SELECT Round, AvgYards FROM NFLPlayer "
-    draft_statement += "JOIN Draft on NFLPlayer.NameId = Draft.NameID "
+    draft_statement += "JOIN Draft on NFLPlayer.NameId = Draft.Id "
     draft_statement += "WHERE NFLPlayer.Position = '{}'".format(position)
     cur.execute(draft_statement)
     conn.commit()
 
     draft_round = []
     avg_yards = []
+    success_data = []
     for player in cur:
         draft_round.append(player[0])
         avg_yards.append(player[1])
 
+    success_data.apend(draft_round)
+    success_data.apend(avg_yards)
+
+    return success_data
+
+def success_graph(success_data):
+
+    draft_round_data = success_data[0]
+    avg_yards_data = success_data[1]
+
     # Create traces
     trace0 = go.Scatter(
-        x = draft_round,
-        y = avg_yards,
+        x = draft_round_data,
+        y = avg_yards_data,
         mode = 'markers',
         name = 'Players'
     )
@@ -812,7 +857,7 @@ def success_command(command):
     data = [trace0]
     py.plot(data, filename = 'Scatter Plot of Draft Round vs Avg Yards for {}s'.format(position))
 
-def preparedness_command(command):
+def preparedness_command():
 
     prep_statement = "SELECT College, AVG(Preparedness) FROM NFLPlayer "
     prep_statement += "GROUP BY College ORDER BY AVG(Preparedness) "
@@ -822,13 +867,21 @@ def preparedness_command(command):
 
     schools = []
     avg_prep = []
+    prep_data = []
     for school in cur:
         schools.append(school[0])
         avg_prep.append(school[1])
 
+    prep_data.append(schools, avg_prep)
+
+def preparedness_graph(preparedness_data):
+
+    school_data = preparedness_data[0]
+    avg_data = preparedness_data[1]
+
     data = [go.Bar(
-        x = schools,
-        y = avg_prep
+        x = school_data,
+        y = avg_data
     )]
 
     py.plot(data, filename = 'Bar Chart of Top 10 Schools for Average Preparedness Score')
@@ -836,30 +889,33 @@ def preparedness_command(command):
 def handle_command(command):
 
     if command.lower() == "draft":
-        top_colleges_command()
+        top_colleges_data = top_colleges_command()
+        top_colleges_graph(top_colleges_data)
 
     elif "studs" in command.lower():
-        studs_command(command)
+        studs_data = studs_command(command)
+        if studs_data is None:
+            return
+        studs_graph(studs_data)
 
     elif "success" in command.lower():
-        success_command(command)
+        success_data = success_command(command)
+        success_graph(success_data)
 
     elif command.lower() == "preparedness":
-        preparedness_command(command)
+        prep_data = preparedness_command()
+        preparedness_graph(prep_data)
 
     else:
         print()
         print("Invalid command.")
 
-
 def interactive_prompt():
     help_text = load_help_text()
-    colleges_text = load_colleges_text()
     command = ''
 
     print()
     print("Type 'help' for list of commands.")
-    print("Type 'colleges' for list of colleges that have sent players to the 2011-2015 drafts.")
     while command != 'exit':
 
         print()
@@ -882,10 +938,6 @@ def interactive_prompt():
 
 def load_help_text():
     with open('help.txt') as f:
-        return f.read()
-
-def load_colleges_text():
-    with open('colleges.txt') as f:
         return f.read()
 
 if __name__ == '__main__':

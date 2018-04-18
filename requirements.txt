@@ -1,0 +1,3 @@
+requests==2.18.4
+BeautifulSoup==4.6.0
+plotly==2.5.1
