@@ -24,8 +24,12 @@ Commands available:
         Description: Creates a scatter plot of draft round vs average yards
         per season for players at a specific position.
 
-        Options: [QB, WR, RB] default - QB: Chooses position to base graph data on
+        Options: [QB, WR, RB] (default - QB): Chooses position to base graph data on.
+
+                 Ex. success WR
 
     'preparedness':
 
-      Description: 
+        Description: Creates a bar chart for the top 10 schools that have had
+        QBs, WRs, and RBs accumulate stats in the 2001 - 2015 seasons, ranked by
+        their average 'preparedness scale'.

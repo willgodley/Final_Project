@@ -22,7 +22,7 @@ class Player():
         self.round = round_num
         self.pick = pick
         self.college = clg
-        self.draft_year = draft_yr
+        self.draft_year = draft_yr.split()[0]
         self.avg_yards = self.compute_stats(stats)[0]
         self.avg_td = self.compute_stats(stats)[1]
         self.preparedness = self.get_prep_score()
@@ -41,20 +41,9 @@ class Player():
         total_td = 0
         total_years = len(stats)
 
-        if self.position == 'QB':
-            for year in stats:
-                total_yards += int(year[11])
-                total_td += int(year[12])
-
-        elif self.position == 'RB':
-            for year in stats:
-                total_yards += int(year[8])
-                total_td += int(year[9])
-
-        elif self.position == 'WR':
-            for year in stats:
-                total_yards += int(year[10])
-                total_td += int(year[12])
+        for year in stats:
+            total_yards += int(year[0])
+            total_td += int(year[1])
 
         avg_yards = total_yards / total_years
         avg_yards_str = str(avg_yards)
@@ -245,7 +234,7 @@ def crawl_draft_data():
                         continue
 
                 if len(cells) != 0:
-                    cells.append(current_year)
+                    cells.append(year)
                     current_year_draft.append(cells)
 
         raw_data_dict[key] = current_year_draft
@@ -485,7 +474,7 @@ def insert_draft_data():
             draft_pick = player[1]
             draft_round = player[0]
             college = player[27]
-            year = player[-1]
+            year = player[29]
 
             names_and_keys_dict[name] = player_id
             player_id += 1
@@ -570,27 +559,36 @@ def initialize_player_data(foreign_keys_dict):
             name = player_drafted[3]
             position = player_drafted[4]
             # Only initialize players who are QB, WR, or RB
+            player_stats = []
             if 'QB' in position:
                 for season in passing_dict:
                     for player in passing_dict[season]:
                         if name in player:
-                            stats.append(player)
+                            yards = int(player[11])
+                            tds = int(player[12])
+                            yards_and_tds = (yards, tds)
+                            player_stats.append(yards_and_tds)
 
             elif 'RB' in position:
                 for season in rushing_dict:
                     for player in rushing_dict[season]:
                         if name in player:
-                            stats.append(player)
+                            yards = int(player[8])
+                            tds = int(player[9])
+                            yards_and_tds = (yards, tds)
+                            player_stats.append(yards_and_tds)
 
             elif 'WR' in position:
                 for season in receiving_dict:
                     for player in receiving_dict[season]:
                         if name in player:
-                            stats.append(player)
-
+                            yards = int(player[10])
+                            tds = int(player[12])
+                            yards_and_tds = (yards, tds)
+                            player_stats.append(yards_and_tds)
             else:
                 continue
-            year_drafted = player_drafted[-1]
+            year_drafted = player_drafted[29]
             college = player_drafted[27]
 
             # Remove players who didn't participate in combine
@@ -599,7 +597,7 @@ def initialize_player_data(foreign_keys_dict):
             else:
                 continue
 
-            if len(stats) == 0:
+            if len(player_stats) == 0:
                 continue
 
             # Did this to shorten Player initialization line
@@ -610,7 +608,7 @@ def initialize_player_data(foreign_keys_dict):
             e = draft_pick
             f = college
             g = draft_year
-            h = stats
+            h = player_stats
             new_player = Player(a, b, c, d, e, f, g, h)
             players.append(new_player)
 
@@ -712,9 +710,23 @@ def top_colleges_graph(best_colleges):
         labels.append(college[0])
         values.append(college[1])
 
-    trace = go.Pie(labels = labels, values = values)
+    # trace = go.Pie(labels=labels, values=values,
+    #            textinfo='value', title='Top 10 Colleges For Number of Players Drafted')
 
-    py.plot([trace], filename = 'Top 10 Colleges For Number of Players Drafted')
+    fig = {
+        "data": [
+            {
+          "values": values,
+          "labels": labels,
+          "name": "Number of Draft Picks",
+          "hoverinfo":"label+name+value",
+          "type": "pie"
+        }],
+        "layout": {
+            "title":"Top 10 Colleges For Number of Players Drafted"
+            }
+    }
+    py.plot(fig, filename = 'Top 10 Colleges')
 
 def studs_command(command):
 
@@ -806,9 +818,28 @@ def studs_graph(studs_data):
     )]
 
     if university.lower() == 'all':
-        py.plot(data, filename = 'Bar Chart of Stud, Successful, and Bust Players From All Colleges')
+        # DO PLOTLY STUFF
+        data = [go.Bar(
+            x=['Studs', 'Successful', 'Busts'],
+            y=[studs, successful, busts],
+            name = 'Bar Chart of Stud, Successful, and Bust Players From All Colleges'
+        )]
+        layout = go.Layout(
+            title='Bar Chart of Stud, Successful, and Bust Players From All Colleges',
+            xaxis=dict(title=''),yaxis=dict(title='Number Players'))
+        fig = go.Figure(data=data, layout=layout)
+        py.plot(fig, filename = 'Bar Chart')
     else:
-        py.plot(data, filename = 'Bar Chart of Stud, Successful, and Bust Players From {}'.format(university))
+        data = [go.Bar(
+            x=['Studs', 'Successful', 'Busts'],
+            y=[studs, successful, busts],
+            name = 'Bar Chart of Stud, Successful, and Bust Players From {}'.format(university)
+        )]
+        layout = go.Layout(
+            title='Bar Chart of Stud, Successful, and Bust Players From {}'.format(university),
+            xaxis=dict(title=''),yaxis=dict(title='Number Players'))
+        fig = go.Figure(data=data, layout=layout)
+        py.plot(fig, filename = 'Bar Chart')
 
 def success_command(command):
 
@@ -836,8 +867,9 @@ def success_command(command):
         draft_round.append(player[0])
         avg_yards.append(player[1])
 
-    success_data.apend(draft_round)
-    success_data.apend(avg_yards)
+    success_data.append(draft_round)
+    success_data.append(avg_yards)
+    success_data.append(position)
 
     return success_data
 
@@ -845,17 +877,23 @@ def success_graph(success_data):
 
     draft_round_data = success_data[0]
     avg_yards_data = success_data[1]
+    player_position = success_data[2]
 
     # Create traces
     trace0 = go.Scatter(
         x = draft_round_data,
         y = avg_yards_data,
         mode = 'markers',
-        name = 'Players'
+        name = 'Scatter Plot of Draft Round vs Avg Yards for {}s'.format(player_position)
     )
 
+    layout = go.Layout(
+        title='Scatter Plot of Draft Round vs Avg Yards for {}s'.format(player_position),
+        xaxis=dict(title='Draft Round'),yaxis=dict(title='Average Yards per Season'))
+
     data = [trace0]
-    py.plot(data, filename = 'Scatter Plot of Draft Round vs Avg Yards for {}s'.format(position))
+    fig = go.Figure(data=data, layout=layout)
+    py.plot(fig, filename = 'Scatter Plot')
 
 def preparedness_command():
 
@@ -872,7 +910,9 @@ def preparedness_command():
         schools.append(school[0])
         avg_prep.append(school[1])
 
-    prep_data.append(schools, avg_prep)
+    prep_data.append(schools)
+    prep_data.append(avg_prep)
+    return prep_data
 
 def preparedness_graph(preparedness_data):
 
@@ -881,10 +921,16 @@ def preparedness_graph(preparedness_data):
 
     data = [go.Bar(
         x = school_data,
-        y = avg_data
+        y = avg_data,
+        name = 'Bar Chart of Top 10 Schools for Average Preparedness Score'
     )]
 
-    py.plot(data, filename = 'Bar Chart of Top 10 Schools for Average Preparedness Score')
+    layout = go.Layout(
+        title='Bar Chart of Top 10 Schools for Average Preparedness Score',
+        xaxis=dict(title='Schools'),yaxis=dict(title='Preparedness Scale'))
+
+    fig = go.Figure(data=data, layout=layout)
+    py.plot(fig, filename = 'Bar Chart')
 
 def handle_command(command):
 
@@ -900,6 +946,8 @@ def handle_command(command):
 
     elif "success" in command.lower():
         success_data = success_command(command)
+        if success_data is None:
+            return
         success_graph(success_data)
 
     elif command.lower() == "preparedness":
