@@ -579,8 +579,7 @@ def studs_command(command):
                 good_college = True
 
         if good_college == False:
-            print("{} has not sent any players to the 2001-2015 drafts".format(school))
-            return
+            return "{} has not sent any players to the 2001-2015 drafts".format(school)
 
         picks_statement = "SELECT Position, AvgYards, AvgTD FROM NFLPlayer "
         picks_statement += "WHERE College = '{}'".format(school)
@@ -769,7 +768,8 @@ def handle_command(command):
 
     elif "studs" in command.lower():
         studs_data = studs_command(command)
-        if studs_data is None:
+        if studs_data is str:
+            print(studs_data)
             return
         studs_graph(studs_data)
 

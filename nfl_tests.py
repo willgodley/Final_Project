@@ -116,7 +116,9 @@ class TestStudsCommand(unittest.TestCase):
 
     def testStudsBadSchool(self):
         results3 = studs_command("studs dfsf")
-        assert(results3 is None)
+        return3 = 'dfsf has not sent any players to the 2001-2015 drafts'
+        assert(type(results3) == str)
+        assert(results3 == return3)
 
 class TestSuccessCommand(unittest.TestCase):
 
