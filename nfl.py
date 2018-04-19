@@ -94,6 +94,12 @@ class Player():
 # TABLE SECTION
 
 def make_draft_table():
+    # Connect to database
+    try:
+        conn = sqlite.connect(DB_NAME)
+        cur = conn.cursor()
+    except:
+        print("Error occurred connecting to database")
 
     statement = "DROP TABLE IF EXISTS 'Draft'"
     cur.execute(statement)
@@ -113,6 +119,13 @@ def make_draft_table():
     cur.execute(statement)
 
 def make_combine_table():
+    # Connect to database
+    try:
+        conn = sqlite.connect(DB_NAME)
+        cur = conn.cursor()
+    except:
+        print("Error occurred connecting to database")
+
     statement = "DROP TABLE IF EXISTS 'Combine'"
     cur.execute(statement)
 
@@ -132,6 +145,13 @@ def make_combine_table():
     cur.execute(statement)
 
 def make_NFL_table():
+    # Connect to database
+    try:
+        conn = sqlite.connect(DB_NAME)
+        cur = conn.cursor()
+    except:
+        print("Error occurred connecting to database")
+
     statement = "DROP TABLE IF EXISTS 'NFLPlayer'"
     cur.execute(statement)
 
@@ -191,7 +211,9 @@ def crawl_draft_data():
 
         if full_url in draft_cache:
             page_text = draft_cache[full_url]
+            print("cache")
         else:
+            print("scrape")
             page_resp = requests.get(full_url)
             page_text = page_resp.text
             draft_cache[full_url] = page_text
@@ -211,7 +233,9 @@ def crawl_draft_data():
         if key in raw_data_dict:
             draft_data = raw_data_dict[key]
             current_year_draft = draft_data
+            print("cache")
         else:
+            print("scrape")
             current_year_draft = []
             drafted_table = page_soup.find('table', id = 'drafts')
             drafted_table_body = drafted_table.find('tbody')
@@ -645,8 +669,9 @@ def insert_nfl_data(players):
 
         conn.commit()
 
-# USED TO GET LIST OF COLLEGES, EITHER ALL OR COUNT OF A SINGLE COLLEGE
-def get_colleges(kind):
+# USED TO GET LIST OF COLLEGES AND THEIR TOTAL NUMBER OF DRAFT PICKS,
+# EITHER ALL OR A SINGLE COLLEGE
+def get_colleges(kind, school=''):
     # Connect to database
     try:
         conn = sqlite.connect(DB_NAME)
@@ -654,47 +679,37 @@ def get_colleges(kind):
     except:
         print("Error occurred connecting to database")
 
-    all_colleges_statement = "SELECT College FROM Draft"
+    all_colleges_statement = "SELECT College, COUNT(*) FROM Draft "
+
+    all_colleges = []
+
+    if kind == 'single':
+        all_colleges_statement += "WHERE College = '{}'".format(school)
+    elif kind == 'all':
+        all_colleges_statement += "GROUP BY College"
 
     cur.execute(all_colleges_statement)
     conn.commit()
 
-    all_colleges = []
-    if kind == 'all':
-        for college in cur:
-            if college[0].strip() == '':
-                continue
-            all_colleges.append(college[0])
-    elif kind == 'single':
-        for college in cur:
-            if college[0] not in all_colleges:
-                if college[0].strip() == '':
-                    continue
-                all_colleges.append(college[0])
+    for pair in cur:
+        all_colleges.append(pair)
 
     return all_colleges
 
 
-# DIFFERENT COMMAND FUNCTIONS THAT LAUNCH PLOTLY GRAPHS
+# DIFFERENT COMMAND FUNCTIONS THAT COLLECT DATA AND LAUNCH PLOTLY GRAPHS
 
 def top_colleges_command():
 
     colleges = get_colleges("all")
 
-    college_count = {}
-
-    for college in colleges:
-        if college not in college_count:
-            college_count[college] = 0
-        college_count[college] += 1
-
-    sorted_colleges = sorted(college_count.items(), key = lambda x: x[1], reverse = True)
+    sorted_colleges = sorted(colleges, key = lambda x: int(x[1]), reverse = True)
     top_colleges = sorted_colleges[:10]
     all_other_colleges = sorted_colleges[10:]
     all_other_count = 0
     total_colleges = 0
     for college in all_other_colleges:
-        all_other_count += college[1]
+        all_other_count += int(college[1])
         total_colleges += 1
     avg = all_other_count/total_colleges
     other = ('Average of all other schools', round(avg, 2))
@@ -709,9 +724,6 @@ def top_colleges_graph(best_colleges):
     for college in best_colleges:
         labels.append(college[0])
         values.append(college[1])
-
-    # trace = go.Pie(labels=labels, values=values,
-    #            textinfo='value', title='Top 10 Colleges For Number of Players Drafted')
 
     fig = {
         "data": [
@@ -731,11 +743,17 @@ def top_colleges_graph(best_colleges):
 def studs_command(command):
 
     try:
+        conn = sqlite.connect(DB_NAME)
+        cur = conn.cursor()
+    except:
+        print("Error occurred connecting to database")
+
+    try:
         school = command.split()[1]
     except:
         school = 'all'
 
-    colleges = get_colleges("single")
+    colleges = get_colleges("single", school)
 
     if school.lower() == "all":
         picks_statement = "SELECT Position, AvgYards, AvgTD FROM NFLPlayer"
@@ -765,7 +783,7 @@ def studs_command(command):
     else:
         good_college = False
         for university in colleges:
-            if university == school:
+            if university[0] == school:
                 good_college = True
 
         if good_college == False:
@@ -844,6 +862,12 @@ def studs_graph(studs_data):
 def success_command(command):
 
     try:
+        conn = sqlite.connect(DB_NAME)
+        cur = conn.cursor()
+    except:
+        print("Error occurred connecting to database")
+
+    try:
         position = command.split()[1]
     except:
         position = 'QB'
@@ -856,7 +880,7 @@ def success_command(command):
 
     draft_statement = "SELECT Round, AvgYards FROM NFLPlayer "
     draft_statement += "JOIN Draft on NFLPlayer.NameId = Draft.Id "
-    draft_statement += "WHERE NFLPlayer.Position = '{}'".format(position)
+    draft_statement += "WHERE NFLPlayer.Position = '{}'".format(position.upper())
     cur.execute(draft_statement)
     conn.commit()
 
@@ -884,11 +908,11 @@ def success_graph(success_data):
         x = draft_round_data,
         y = avg_yards_data,
         mode = 'markers',
-        name = 'Scatter Plot of Draft Round vs Avg Yards for {}s'.format(player_position)
+        name = 'Scatter Plot of Draft Round vs Avg Yards for {}s'.format(player_position.upper())
     )
 
     layout = go.Layout(
-        title='Scatter Plot of Draft Round vs Avg Yards for {}s'.format(player_position),
+        title='Scatter Plot of Draft Round vs Avg Yards for {}s'.format(player_position.upper()),
         xaxis=dict(title='Draft Round'),yaxis=dict(title='Average Yards per Season'))
 
     data = [trace0]
@@ -896,6 +920,12 @@ def success_graph(success_data):
     py.plot(fig, filename = 'Scatter Plot')
 
 def preparedness_command():
+
+    try:
+        conn = sqlite.connect(DB_NAME)
+        cur = conn.cursor()
+    except:
+        print("Error occurred connecting to database")
 
     prep_statement = "SELECT College, AVG(Preparedness) FROM NFLPlayer "
     prep_statement += "GROUP BY College ORDER BY AVG(Preparedness) "
@@ -958,6 +988,7 @@ def handle_command(command):
         print()
         print("Invalid command.")
 
+
 def interactive_prompt():
     help_text = load_help_text()
     command = ''
@@ -988,6 +1019,19 @@ def load_help_text():
     with open('help.txt') as f:
         return f.read()
 
+# Initializing functions, I did this to avoid overpopulating db during testing
+make_combine_table()
+make_draft_table()
+make_NFL_table()
+crawl_draft_data()
+crawl_passing_data()
+crawl_rushing_data()
+crawl_receiving_data()
+names_with_keys = insert_draft_data()
+insert_combine_data(names_with_keys)
+PLAYERS = initialize_player_data(names_with_keys)
+insert_nfl_data(PLAYERS)
+
 if __name__ == '__main__':
     # Connect to database
     try:
@@ -996,18 +1040,6 @@ if __name__ == '__main__':
     except:
         print("Error occurred connecting to database")
 
-    # Initializing functions
-    make_combine_table()
-    make_draft_table()
-    make_NFL_table()
-    crawl_draft_data()
-    crawl_passing_data()
-    crawl_rushing_data()
-    crawl_receiving_data()
-    names_with_keys = insert_draft_data()
-    insert_combine_data(names_with_keys)
-    players = initialize_player_data(names_with_keys)
-    insert_nfl_data(players)
 
     # Interactive prompt
     interactive_prompt()
