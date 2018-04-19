@@ -53,12 +53,11 @@ my database, but I do not work with it further.
 The most important parts of my code are the data crawling, inserting, and
 pulling from database functions, as well as my Player class.
 
-My 4 crawling functions, crawl_draft_data, crawl_passing_data,
-crawl_rushing_data, and crawl_receiving_data are all self explanatory
-for what they do. They crawl different parts of pro-football-reference.com.
-Their code is pretty repetitive, but I did this because the different
-tables had a few different attributes and I wanted to keep the data separated.
-This is also why I cached the dictionaries that I got from the data separately.
+My crawling function, crawl_data, crawls different parts of pro-football-reference.com.
+There are 4 different sections of the website that I crawl, draft, passing,
+rushing, and receiving. I use lists to apply the specific variables needed for
+each part of the crawl in one for loop, which greatly speeds up the speed of
+the program.
 
 Next are my insertion functions. insert_draft_data is used to parse through
 all the tables that I got back from the website and create a dictionary, which
@@ -79,7 +78,13 @@ average out all the yardage and touchdown totals over the seasons that were
 scraped for each player. get_prep_score uses these totals, along with draft round
 to compute a score of how well a college prepared a player. A perfect score
 would be at or slightly above 1, which only one player, Odell Beckham has (1.009).
-It is decided by adding 30% of the score from draft position divided by total possible draft points (first round -> 7 points -> 7/7 = 1 -> 1*.3 = .3, seventh round -> 1 point, and 40% of A player’s average yards per season from the 2011 to 2015 seasons divided by extremely good seasonal yardage totals. For quarterbacks, it will be 5,000, and 1,000 for wide receivers and running backs. It will also include 30% from average TDs over those seasons, divided by 50 for QBs and 15 for WRs and RBs.
+It is decided by adding 30% of the score from draft position divided by total
+possible draft points (first round -> 7 points -> 7/7 = 1 -> 1*.3 = .3, seventh
+round -> 1 point, and 40% of A player’s average yards per season from the 2001
+to 2015 seasons divided by extremely good seasonal yardage totals. For
+quarterbacks, it will be 5,000, and 1,000 for wide receivers and running backs.
+It will also include 30% from average TDs over those seasons, divided by 50 for
+QBs and 15 for WRs and RBs.
 
 * Note: insert_combine_data uses the csv to insert name, name_id, position, college,
 forty time, nfl grade, and year to the
@@ -105,7 +110,7 @@ average yards for all players at a specified position. I use this data to make a
 scatter plot.
     In the preparedness_command, I use my statement to get the top 10 schools
 and their average preparedness score, ranking them by highest score. I use
-the returned data to form a bar chart. 
+the returned data to form a bar chart.
 
 
 

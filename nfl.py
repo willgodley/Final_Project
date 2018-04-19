@@ -195,279 +195,101 @@ def cacheWrite(name, cache_dict):
 
 # CRAWLING PRO FOOTBALL REFERENCE
 
-def crawl_draft_data():
+def crawl_data():
     players = []
     table_contents = []
-    page_cache_name = 'draft.json'
-    raw_data_cache = 'draft_data.json'
+
+    page_cache_names = []
+    page_cache_names.append('draft.json')
+    page_cache_names.append('raw_data.json')
+    page_cache_names.append('raw_data.json')
+    page_cache_names.append('raw_data.json')
+
+    data_cache_names = []
+    data_cache_names.append('draft_data.json')
+    data_cache_names.append('passing_data.json')
+    data_cache_names.append('rushing_data.json')
+    data_cache_names.append('receiving_data.json')
 
     base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2001/draft.htm'
-    full_url = base_url + first_draft_url
+    urls = []
+    urls.append('/years/2001/draft.htm')
+    urls.append('/years/2001/passing.htm')
+    urls.append('/years/2001/rushing.htm')
+    urls.append('/years/2001/receiving.htm')
 
-    year = 2001
-    while year < 2016:
-        draft_cache = cacheOpen(page_cache_name)
+    keys = []
+    keys.append(' draft')
+    keys.append(' passing')
+    keys.append(' rushing')
+    keys.append(' receiving')
 
-        if full_url in draft_cache:
-            page_text = draft_cache[full_url]
-        else:
-            page_resp = requests.get(full_url)
-            page_text = page_resp.text
-            draft_cache[full_url] = page_text
-            cacheWrite(page_cache_name, draft_cache)
+    table_ids = ['drafts', 'passing', 'rushing_and_receiving', 'receiving']
 
-        page_soup = BeautifulSoup(page_text, 'html.parser')
+    url_round = 0
+    for end_url in urls:
+        full_url = base_url + urls[url_round]
+        year = 2001
+        while year < 2016:
+            page_cache = cacheOpen(page_cache_names[url_round])
 
-        next_button = page_soup.find(class_ = 'button2 next')
-        next_draft_url = next_button['href']
-        next_url = base_url + next_draft_url
+            if full_url in page_cache:
+                page_text = page_cache[full_url]
+            else:
+                page_resp = requests.get(full_url)
+                page_text = page_resp.text
+                page_cache[full_url] = page_text
+                cacheWrite(page_cache_names[url_round], page_cache)
 
-        raw_data_dict = cacheOpen(raw_data_cache)
-        split_url = full_url.split('/')
-        current_year = int(split_url[4])
-        key = str(current_year) + ' draft'
+            page_soup = BeautifulSoup(page_text, 'html.parser')
 
-        if key in raw_data_dict:
-            draft_data = raw_data_dict[key]
-            current_year_draft = draft_data
-        else:
-            current_year_draft = []
-            drafted_table = page_soup.find('table', id = 'drafts')
-            drafted_table_body = drafted_table.find('tbody')
-            for row in drafted_table_body:
-                cells = []
-                for cell in row:
-                    try:
-                        cell_str = cell.text.strip()
-                        if "*" in cell_str:
-                            fixed_cell = cell_str.replace('*', '')
-                            if '+' in fixed_cell:
-                                fixed_cell = fixed_cell.replace('+', '')
-                            cells.append(fixed_cell)
-                        elif '+' in cell_str:
-                            fixed_cell = cell_str.replace('+', '')
-                            cells.append(fixed_cell)
-                        else:
-                            cells.append(cell_str)
-                    except:
-                        continue
+            next_button = page_soup.find(class_ = 'button2 next')
+            next_draft_url = next_button['href']
+            next_url = base_url + next_draft_url
 
-                if len(cells) != 0:
-                    cells.append(year)
-                    current_year_draft.append(cells)
+            raw_data_dict = cacheOpen(data_cache_names[url_round])
+            split_url = full_url.split('/')
+            current_year = int(split_url[4])
+            key = str(current_year) + keys[url_round]
 
-        raw_data_dict[key] = current_year_draft
-        cacheWrite(raw_data_cache, raw_data_dict)
+            if key in raw_data_dict:
+                data = raw_data_dict[key]
+                current_year_data = data
+            else:
+                current_year_data = []
+                table = page_soup.find('table', id = table_ids[url_round])
+                table_body = table.find('tbody')
+                for row in table_body:
+                    cells = []
+                    for cell in row:
+                        try:
+                            cell_str = cell.text.strip()
+                            if "*" in cell_str:
+                                fixed_cell = cell_str.replace('*', '')
+                                if '+' in fixed_cell:
+                                    fixed_cell = fixed_cell.replace('+', '')
+                                cells.append(fixed_cell)
+                            elif '+' in cell_str:
+                                fixed_cell = cell_str.replace('+', '')
+                                cells.append(fixed_cell)
+                            else:
+                                cells.append(cell_str)
+                        except:
+                            continue
 
-        full_url = next_url
-        split_url = full_url.split('/')
-        year = int(split_url[4])
+                    if len(cells) != 0:
+                        if url_round == 0:
+                            cells.append(year)
+                        current_year_data.append(cells)
 
-def crawl_passing_data():
-    passer_stats = []
-    table_contents = []
-    page_cache_name = 'stats.json'
-    raw_data_cache = 'passing_data.json'
+            raw_data_dict[key] = current_year_data
+            cacheWrite(data_cache_names[url_round], raw_data_dict)
 
-    base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2001/passing.htm'
-    full_url = base_url + first_draft_url
+            full_url = next_url
+            split_url = full_url.split('/')
+            year = int(split_url[4])
 
-    # passer stats
-    year = 2001
-    while year < 2016:
-        stats_cache = cacheOpen(page_cache_name)
-
-        if full_url in stats_cache:
-            page_text = stats_cache[full_url]
-        else:
-            page_resp = requests.get(full_url)
-            page_text = page_resp.text
-            stats_cache[full_url] = page_text
-            cacheWrite(page_cache_name, stats_cache)
-
-        page_soup = BeautifulSoup(page_text, 'html.parser')
-
-        next_button = page_soup.find(class_ = 'button2 next')
-        next_year_url = next_button['href']
-        next_url = base_url + next_year_url
-
-        raw_data_dict = cacheOpen(raw_data_cache)
-        split_url = full_url.split('/')
-        current_year = int(split_url[4])
-        key = str(current_year) + ' passing'
-
-        if key in raw_data_dict:
-            passing_data = raw_data_dict[key]
-            current_year_stats = passing_data
-        else:
-            current_year_stats = []
-            passing_table = page_soup.find('table', id = 'passing')
-            passing_table_body = passing_table.find('tbody')
-            for row in passing_table_body:
-                cells = []
-                for cell in row:
-                    try:
-                        cell_str = cell.text.strip()
-                        if "*" in cell_str:
-                            fixed_cell = cell_str.replace('*', '')
-                            if '+' in fixed_cell:
-                                fixed_cell = fixed_cell.replace('+', '')
-                            cells.append(fixed_cell)
-                        elif '+' in cell_str:
-                            fixed_cell = cell_str.replace('+', '')
-                            cells.append(fixed_cell)
-                        else:
-                            cells.append(cell_str)
-                    except:
-                        continue
-                if len(cells) != 0:
-                    current_year_stats.append(cells)
-
-        raw_data_dict[key] = current_year_stats
-        cacheWrite(raw_data_cache, raw_data_dict)
-
-        full_url = next_url
-        split_url = full_url.split('/')
-        year = int(split_url[4])
-
-def crawl_rushing_data():
-    rushing_stats = []
-    table_contents = []
-    page_cache_name = 'stats.json'
-    raw_data_cache = 'rushing_data.json'
-
-    base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2001/rushing.htm'
-    full_url = base_url + first_draft_url
-
-    #passer stats
-    year = 2001
-    while year < 2016:
-        stats_cache = cacheOpen(page_cache_name)
-
-        if full_url in stats_cache:
-            page_text = stats_cache[full_url]
-        else:
-            page_resp = requests.get(full_url)
-            page_text = page_resp.text
-            stats_cache[full_url] = page_text
-            cacheWrite(page_cache_name, stats_cache)
-
-        page_soup = BeautifulSoup(page_text, 'html.parser')
-
-        next_button = page_soup.find(class_ = 'button2 next')
-        next_year_url = next_button['href']
-        next_url = base_url + next_year_url
-
-        raw_data_dict = cacheOpen(raw_data_cache)
-        split_url = full_url.split('/')
-        current_year = int(split_url[4])
-        key = str(current_year) + ' rushing'
-
-        if key in raw_data_dict:
-            rushing_data = raw_data_dict[key]
-            current_year_stats = rushing_data
-        else:
-            current_year_stats = []
-            rushing_table = page_soup.find('table', id = 'rushing_and_receiving')
-            rushing_table_body = rushing_table.find('tbody')
-            for row in rushing_table_body:
-                cells = []
-                for cell in row:
-                    try:
-                        cell_str = cell.text.strip()
-                        if "*" in cell_str:
-                            fixed_cell = cell_str.replace('*', '')
-                            if '+' in fixed_cell:
-                                fixed_cell = fixed_cell.replace('+', '')
-                            cells.append(fixed_cell)
-                        elif '+' in cell_str:
-                            fixed_cell = cell_str.replace('+', '')
-                            cells.append(fixed_cell)
-                        else:
-                            cells.append(cell_str)
-                    except:
-                        continue
-                if len(cells) != 0:
-                    current_year_stats.append(cells)
-
-        raw_data_dict[key] = current_year_stats
-        cacheWrite(raw_data_cache, raw_data_dict)
-
-        full_url = next_url
-        split_url = full_url.split('/')
-        year = int(split_url[4])
-
-def crawl_receiving_data():
-    receiving_stats = []
-    table_contents = []
-    page_cache_name = 'stats.json'
-    raw_data_cache = 'receiving_data.json'
-
-    base_url = 'https://www.pro-football-reference.com'
-    first_draft_url = '/years/2001/receiving.htm'
-    full_url = base_url + first_draft_url
-
-    #passer stats
-    year = 2001
-    while year < 2016:
-        stats_cache = cacheOpen(page_cache_name)
-
-        if full_url in stats_cache:
-            page_text = stats_cache[full_url]
-        else:
-            page_resp = requests.get(full_url)
-            page_text = page_resp.text
-            stats_cache[full_url] = page_text
-            cacheWrite(page_cache_name, stats_cache)
-
-        page_soup = BeautifulSoup(page_text, 'html.parser')
-
-        next_button = page_soup.find(class_ = 'button2 next')
-        next_year_url = next_button['href']
-        next_url = base_url + next_year_url
-
-        raw_data_dict = cacheOpen(raw_data_cache)
-        split_url = full_url.split('/')
-        current_year = int(split_url[4])
-        key = str(current_year) + ' receiving'
-        if key in raw_data_dict:
-            receiving_data = raw_data_dict[key]
-            current_year_stats = receiving_data
-        else:
-            current_year_stats = []
-            receiving_table = page_soup.find('table', id = 'receiving')
-            receiving_table_body = receiving_table.find('tbody')
-            for row in receiving_table_body:
-                cells = []
-                for cell in row:
-                    try:
-                        cell_str = cell.text.strip()
-                        if "*" in cell_str:
-                            fixed_cell = cell_str.replace('*', '')
-                            if '+' in fixed_cell:
-                                fixed_cell = fixed_cell.replace('+', '')
-                            cells.append(fixed_cell)
-                        elif '+' in cell_str:
-                            fixed_cell = cell_str.replace('+', '')
-                            cells.append(fixed_cell)
-                        else:
-                            cells.append(cell_str)
-                    except:
-                        continue
-
-                if len(cells) != 0:
-                    current_year_stats.append(cells)
-                    table_contents.append(cells)
-
-        raw_data_dict[key] = current_year_stats
-        cacheWrite(raw_data_cache, raw_data_dict)
-
-        full_url = next_url
-        split_url = full_url.split('/')
-        year = int(split_url[4])
+        url_round += 1
 
 
 # INSERTING DATA INTO TABLES
@@ -731,7 +553,7 @@ def top_colleges_graph(best_colleges):
           "type": "pie"
         }],
         "layout": {
-            "title":"Top 10 Colleges For Number of Players Drafted"
+            "title":"Top 10 Colleges For Number of Players Drafted 2001-2015"
             }
     }
     py.plot(fig, filename = 'Top 10 Colleges')
@@ -1000,10 +822,7 @@ def load_help_text():
 make_combine_table()
 make_draft_table()
 make_NFL_table()
-crawl_draft_data()
-crawl_passing_data()
-crawl_rushing_data()
-crawl_receiving_data()
+crawl_data()
 names_with_keys = insert_draft_data()
 insert_combine_data(names_with_keys)
 PLAYERS = initialize_player_data(names_with_keys)
