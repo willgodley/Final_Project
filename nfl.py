@@ -211,9 +211,7 @@ def crawl_draft_data():
 
         if full_url in draft_cache:
             page_text = draft_cache[full_url]
-            print("cache")
         else:
-            print("scrape")
             page_resp = requests.get(full_url)
             page_text = page_resp.text
             draft_cache[full_url] = page_text
@@ -233,9 +231,7 @@ def crawl_draft_data():
         if key in raw_data_dict:
             draft_data = raw_data_dict[key]
             current_year_draft = draft_data
-            print("cache")
         else:
-            print("scrape")
             current_year_draft = []
             drafted_table = page_soup.find('table', id = 'drafts')
             drafted_table_body = drafted_table.find('tbody')
@@ -753,34 +749,8 @@ def studs_command(command):
     except:
         school = 'all'
 
-    colleges = get_colleges("single", school)
-
-    if school.lower() == "all":
-        picks_statement = "SELECT Position, AvgYards, AvgTD FROM NFLPlayer"
-        cur.execute(picks_statement)
-        conn.commit()
-
-        studs = 0
-        successful = 0
-        busts = 0
-
-        for player in cur:
-            if player[0] == 'QB':
-                if float(player[1]) >= 3200.0 or float(player[2]) >= 20.0:
-                    studs += 1
-                elif float(player[1]) >= 2000.0 or float(player[2]) >= 10.0:
-                    successful += 1
-                else:
-                    busts += 1
-            else:
-                if float(player[1]) >= 700.0 or float(player[2]) >= 7.0:
-                    studs += 1
-                elif float(player[1]) >= 400.0 or float(player[2]) >= 3.0:
-                    successful += 1
-                else:
-                    busts += 1
-
-    else:
+    if school.lower() != "all":
+        colleges = get_colleges("single", school)
         good_college = False
         for university in colleges:
             if university[0] == school:
@@ -790,30 +760,37 @@ def studs_command(command):
             print("{} has not sent any players to the 2001-2015 drafts".format(school))
             return
 
-        picks_statement = "SELECT Position, College, AvgYards, AvgTD FROM NFLPlayer"
+        picks_statement = "SELECT Position, AvgYards, AvgTD FROM NFLPlayer "
+        picks_statement += "WHERE College = '{}'".format(school)
         cur.execute(picks_statement)
         conn.commit()
 
-        studs = 0
-        successful = 0
-        busts = 0
+    else:
 
-        for player in cur:
-            if school == str(player[1]):
-                if player[0] == 'QB':
-                    if float(player[2]) >= 3200.0 or float(player[3]) >= 20.0:
-                        studs += 1
-                    elif float(player[2]) >= 2000.0 or float(player[3]) >= 10.0:
-                        successful += 1
-                    else:
-                        busts += 1
-                else:
-                    if float(player[2]) >= 700.0 or float(player[3]) >= 7.0:
-                        studs += 1
-                    elif float(player[2]) >= 400.0 or float(player[3]) >= 3.0:
-                        successful += 1
-                    else:
-                        busts += 1
+        picks_statement = "SELECT Position, AvgYards, AvgTD FROM NFLPlayer"
+        cur.execute(picks_statement)
+        conn.commit()
+
+    studs = 0
+    successful = 0
+    busts = 0
+
+    for player in cur:
+        if player[0] == 'QB':
+            if float(player[1]) >= 3200.0 or float(player[2]) >= 20.0:
+                studs += 1
+            elif float(player[1]) >= 2000.0 or float(player[2]) >= 10.0:
+                successful += 1
+            else:
+                busts += 1
+        else:
+            if float(player[1]) >= 700.0 or float(player[2]) >= 7.0:
+                studs += 1
+            elif float(player[1]) >= 400.0 or float(player[2]) >= 3.0:
+                successful += 1
+            else:
+                busts += 1
+
 
     if studs == 0 and successful == 0 and busts == 0:
         print("No player from this school has accumulated offensive stats in the 2001-2015 seasons")
